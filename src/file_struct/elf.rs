@@ -1,76 +1,75 @@
 #![allow(unused)]
 #![allow(non_camel_case_types)]
-use std::{fs, ops::Range};
+use std::{fs, io::BufRead, ops::Range};
 
-use bytes::{Bytes, Buf};
+use bytes::{Buf, Bytes, BytesMut};
 
-#[derive(Default,Debug)]
-struct Elf32_Addr(u32);
+use crate::utils::{MRError, funcs::i_to_m};
 
-#[derive(Default,Debug)]
-struct Elf32_Off(u32);
+#[derive(Default, Debug)]
+pub struct Elf32_Addr(pub u32);
 
-#[derive(Default,Debug)]
-#[warn(non_camel_case_types)]
-struct Elf64_Addr(u64);
+#[derive(Default, Debug)]
+pub struct Elf32_Off(pub u32);
 
-#[derive(Default,Debug)]
-struct Elf64_Off(u64);
+#[derive(Default, Debug)]
+pub struct Elf64_Addr(pub u64);
+
+#[derive(Default, Debug)]
+pub struct Elf64_Off(pub u64);
 
 pub enum ShdrType {
-    SHT_NULL=0,
-    SHT_PROGBITS=1,
-    SHT_SYMTAB=2,
-    SHT_STRTAB=3,
-    SHT_RELA=4,
-    SHT_HASH=5,
-    SHT_DYNAMIC=6,
-    SHT_NOTE=7,
-    SHT_NOBITS=8,
-    SHT_REL=9,
-    SHT_SHLIB=11,
-    SHT_DYNSYM=12,
-    SHT_LOPROC=0x70000000,
-    SHT_HIPROC=0x7fffffff,
-    SHT_LOUSER=0x80000000,
-    SHT_HIUSER=0xffffffff
+    SHT_NULL = 0,
+    SHT_PROGBITS = 1,
+    SHT_SYMTAB = 2,
+    SHT_STRTAB = 3,
+    SHT_RELA = 4,
+    SHT_HASH = 5,
+    SHT_DYNAMIC = 6,
+    SHT_NOTE = 7,
+    SHT_NOBITS = 8,
+    SHT_REL = 9,
+    SHT_SHLIB = 11,
+    SHT_DYNSYM = 12,
+    SHT_LOPROC = 0x70000000,
+    SHT_HIPROC = 0x7fffffff,
+    SHT_LOUSER = 0x80000000,
+    SHT_HIUSER = 0xffffffff,
 }
-#[derive(Default,Debug)]
-struct  ElfN_Ehdr {
-    e_ident     : [u8;16],
-    e_machine   : u16,
-    e_type      : u16,
-    e_version   : u32,
-    e_flags     : u32,
-    e_ehsize    : u16,
-    e_phentsize : u16,
-    e_phnum     : u16,
-    e_shnum     : u16,
-    e_shentsize : u16,
-    e_shstrndx  : u16
-}
-
-impl ElfN_Ehdr {
-    
-}
-#[derive(Default,Debug)]
-pub struct  Elf32_Ehdr {
-    e_entry     : Elf32_Addr,
-    e_phoff     : Elf32_Off,
-    e_shoff     : Elf32_Off,
-    _ehdr       : ElfN_Ehdr
+#[derive(Default, Debug)]
+struct ElfN_Ehdr {
+    e_ident: [u8; 16],
+    e_machine: u16,
+    e_type: u16,
+    e_version: u32,
+    e_flags: u32,
+    e_ehsize: u16,
+    e_phentsize: u16,
+    e_phnum: u16,
+    e_shnum: u16,
+    e_shentsize: u16,
+    e_shstrndx: u16,
 }
 
-#[derive(Default,Debug)]
+impl ElfN_Ehdr {}
+#[derive(Default, Debug)]
+pub struct Elf32_Ehdr {
+    e_entry: Elf32_Addr,
+    e_phoff: Elf32_Off,
+    e_shoff: Elf32_Off,
+    _ehdr: ElfN_Ehdr,
+}
+
+#[derive(Default, Debug)]
 pub struct Elf64_Ehdr {
-    e_entry     : Elf64_Addr,
-    e_phoff     : Elf64_Off,
-    e_shoff     : Elf64_Off,
-    _ehdr       : ElfN_Ehdr
+    e_entry: Elf64_Addr,
+    e_phoff: Elf64_Off,
+    e_shoff: Elf64_Off,
+    _ehdr: ElfN_Ehdr,
 }
 
 impl Elf32_Ehdr {
-    fn new(bytes : &Bytes) -> Elf32_Ehdr {
+    fn new(bytes: &Bytes) -> Elf32_Ehdr {
         let mut ehdr = Elf32_Ehdr::default();
         ehdr._ehdr.e_ident.copy_from_slice(&bytes[0..16]);
         ehdr._ehdr.e_type = (&bytes[16..18]).get_u16_le();
@@ -89,28 +88,23 @@ impl Elf32_Ehdr {
         ehdr
     }
 
-    fn get_type(&self) -> String {
+    fn get_type(&self) -> &str {
         let t = self._ehdr.e_type;
         if t == 0 {
-            return "ET_None".to_string();
-        }
-        else if t == 1 {
-            return "ET_REL".to_string();
-        }
-        else if t == 2 {
-            return "ET_EXEC".to_string();
-        }
-        else if t == 3 {
-            return "ET_DYN".to_string();
-        }
-        else if t == 4 {
-            return "ET_CORE".to_string();
-        }
-        else if t == 5 {
-            return "ET_NUM".to_string();
+            return "ET_None";
+        } else if t == 1 {
+            return "ET_REL";
+        } else if t == 2 {
+            return "ET_EXEC";
+        } else if t == 3 {
+            return "ET_DYN";
+        } else if t == 4 {
+            return "ET_CORE";
+        } else if t == 5 {
+            return "ET_NUM";
         }
 
-        return "".to_string();
+        return "";
     }
 
     fn get_machine(&self) -> String {
@@ -131,7 +125,7 @@ impl Elf32_Ehdr {
 }
 
 impl Elf64_Ehdr {
-    fn new(bytes : &Bytes) -> Elf64_Ehdr {
+    fn new(bytes: &Bytes) -> Elf64_Ehdr {
         let mut ehdr = Elf64_Ehdr::default();
         ehdr._ehdr.e_ident.copy_from_slice(&bytes[0..16]);
         ehdr._ehdr.e_type = (&bytes[16..18]).get_u16_le();
@@ -150,32 +144,27 @@ impl Elf64_Ehdr {
         ehdr
     }
 
-    fn get_type(&self) -> String {
+    fn get_type(&self) -> &str {
         let t = self._ehdr.e_type;
         if t == 0 {
-            return "ET_None".to_string();
-        }
-        else if t == 1 {
-            return "ET_REL".to_string();
-        }
-        else if t == 2 {
-            return "ET_EXEC".to_string();
-        }
-        else if t == 3 {
-            return "ET_DYN".to_string();
-        }
-        else if t == 4 {
-            return "ET_CORE".to_string();
-        }
-        else if t == 5 {
-            return "ET_NUM".to_string();
+            return "ET_None";
+        } else if t == 1 {
+            return "ET_REL";
+        } else if t == 2 {
+            return "ET_EXEC";
+        } else if t == 3 {
+            return "ET_DYN";
+        } else if t == 4 {
+            return "ET_CORE";
+        } else if t == 5 {
+            return "ET_NUM";
         }
 
-        return "".to_string();
+        return "";
     }
 
-    fn get_machine(&self) -> String {
-        "".to_string()
+    fn get_machine(&self) -> &str {
+        ""
     }
 
     fn get_entry(&self) -> &Elf64_Addr {
@@ -191,39 +180,38 @@ impl Elf64_Ehdr {
     }
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct ElfN_Phdr {
-    p_type : u32,
-    p_flags : u32,
-
+    p_type: u32,
+    p_flags: u32,
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Elf32_Phdr {
-    p_offset : Elf32_Off,
-    p_vaddr  : Elf32_Addr,
-    p_paddr  : Elf32_Addr,
-    p_filesz : u32,
-    p_memsz  : u32,
-    p_align  : u32,
-    _phdr    : ElfN_Phdr,
-    self_elf : Option<*const ELF32>
+    p_offset: Elf32_Off,
+    p_vaddr: Elf32_Addr,
+    p_paddr: Elf32_Addr,
+    p_filesz: u32,
+    p_memsz: u32,
+    p_align: u32,
+    _phdr: ElfN_Phdr,
+    self_elf: Option<*const ELF32>,
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Elf64_Phdr {
-    p_offset : Elf64_Off,
-    p_vaddr  : Elf64_Addr,
-    p_paddr  : Elf64_Addr,
-    p_filesz : u64,
-    p_memsz  : u64,
-    p_align  : u64,
-    _phdr    : ElfN_Phdr,
-    self_elf : Option<*const ELF64>
+    p_offset: Elf64_Off,
+    p_vaddr: Elf64_Addr,
+    p_paddr: Elf64_Addr,
+    p_filesz: u64,
+    p_memsz: u64,
+    p_align: u64,
+    _phdr: ElfN_Phdr,
+    self_elf: Option<*const ELF64>,
 }
 
 impl Elf32_Phdr {
-    fn new(bytes : &Bytes, elf : &ELF32) -> Elf32_Phdr{
+    fn new(bytes: &Bytes, elf: &ELF32) -> Elf32_Phdr {
         let mut phdr = Elf32_Phdr::default();
         phdr._phdr.p_type = (&bytes[0..4]).get_u32_le();
         phdr.p_offset = Elf32_Off((&bytes[4..8]).get_u32_le());
@@ -237,41 +225,33 @@ impl Elf32_Phdr {
         phdr
     }
 
-    fn get_type(&self) -> String {
+    fn get_type(&self) -> &str {
         let p_type = self._phdr.p_type;
         if p_type == 0 {
-            return "PT_NULL".to_string();
-        } 
-        else if p_type == 1 {
-            return "PT_LOAD".to_string();
+            return "PT_NULL";
+        } else if p_type == 1 {
+            return "PT_LOAD";
+        } else if p_type == 2 {
+            return "PT_DYNAMIC";
+        } else if p_type == 3 {
+            return "PT_INTERP";
+        } else if p_type == 4 {
+            return "PT_NOTE";
+        } else if p_type == 5 {
+            return "PT_SHLIB";
+        } else if p_type == 6 {
+            return "PT_PHDR";
+        } else if p_type == 7 {
+            return "PT_TLS";
+        } else if p_type == 8 {
+            return "PT_NUM";
         }
-        else if p_type == 2 {
-            return "PT_DYNAMIC".to_string();
-        }
-        else if p_type == 3 {
-            return "PT_INTERP".to_string();
-        }
-        else if p_type == 4 {
-            return "PT_NOTE".to_string();
-        }
-        else if p_type == 5 {
-            return "PT_SHLIB".to_string();
-        }
-        else if p_type == 6 {
-            return "PT_PHDR".to_string();
-        }
-        else if p_type == 7 {
-            return "PT_TLS".to_string();
-        }
-        else if p_type == 8 {
-            return "PT_NUM".to_string();
-        }
-        "NULL".to_string()
+        "NULL"
     }
 }
 
 impl Elf64_Phdr {
-    fn new(bytes : &Bytes, elf : &ELF64) -> Elf64_Phdr{
+    fn new(bytes: &Bytes, elf: &ELF64) -> Elf64_Phdr {
         let mut phdr = Elf64_Phdr::default();
         phdr._phdr.p_type = (&bytes[0..4]).get_u32_le();
         phdr.p_offset = Elf64_Off((&bytes[4..12]).get_u64_le());
@@ -285,81 +265,258 @@ impl Elf64_Phdr {
         phdr
     }
 }
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Elf32_Shdr {
-    sh_name     : u32,
-    sh_type     : u32,
-    sh_flags    : u32,
-    sh_addr     : Elf32_Addr,
-    sh_offset   : Elf32_Off,
-    sh_size     : u32,
-    sh_link     : u32,
-    sh_info     : u32,
+    sh_name: u32,
+    sh_type: u32,
+    sh_flags: u32,
+    sh_addr: Elf32_Addr,
+    sh_offset: Elf32_Off,
+    sh_size: u32,
+    sh_link: u32,
+    sh_info: u32,
     sh_addralign: u32,
-    sh_entsize  : u32,
-    self_elf    : Option<*const ELF32>
+    sh_entsize: u32,
+    self_elf: Option<*const ELF32>,
+    data    : Bytes,
+    name    : String
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Elf64_Shdr {
-    sh_name     : u32,
-    sh_type     : u32,
-    sh_flags    : u64,
-    sh_addr     : Elf64_Addr,
-    sh_offset   : Elf64_Off,
-    sh_size     : u64,
-    sh_link     : u32,
-    sh_info     : u32,
+    sh_name: u32,
+    sh_type: u32,
+    sh_flags: u64,
+    sh_addr: Elf64_Addr,
+    sh_offset: Elf64_Off,
+    sh_size: u64,
+    sh_link: u32,
+    sh_info: u32,
     sh_addralign: u64,
-    sh_entsize  : u64,
-    self_elf    : Option<*const ELF64>
+    sh_entsize: u64,
+    self_elf: Option<*const ELF64>,
+    data    : Bytes,
+    name    : String
 }
 
 impl Elf32_Shdr {
-    fn new(bytes : &Bytes,elf : &ELF32) -> Elf32_Shdr {
-        Elf32_Shdr { 
-            sh_name: (&bytes[0..4]).get_u32(), 
-            sh_type: (&bytes[4..8]).get_u32(), 
-            sh_flags: (&bytes[8..12]).get_u32(), 
-            sh_addr: Elf32_Addr((&bytes[12..16]).get_u32()), 
-            sh_offset: Elf32_Off((&bytes[16..20]).get_u32()), 
-            sh_size: (&bytes[20..24]).get_u32(), 
-            sh_link: (&bytes[24..28]).get_u32(), 
-            sh_info: (&bytes[28..32]).get_u32(), 
-            sh_addralign: (&bytes[32..36]).get_u32(), 
-            sh_entsize: (&bytes[36..40]).get_u32(),
-            self_elf: Some(elf as *const ELF32)
+    fn new(bytes: &Bytes, elf: &ELF32) -> Elf32_Shdr {
+        Elf32_Shdr {
+            sh_name: (&bytes[0..4]).get_u32_le(),
+            sh_type: (&bytes[4..8]).get_u32_le(),
+            sh_flags: (&bytes[8..12]).get_u32_le(),
+            sh_addr: Elf32_Addr((&bytes[12..16]).get_u32_le()),
+            sh_offset: Elf32_Off((&bytes[16..20]).get_u32_le()),
+            sh_size: (&bytes[20..24]).get_u32_le(),
+            sh_link: (&bytes[24..28]).get_u32_le(),
+            sh_info: (&bytes[28..32]).get_u32_le(),
+            sh_addralign: (&bytes[32..36]).get_u32_le(),
+            sh_entsize: (&bytes[36..40]).get_u32_le(),
+            self_elf: Some(elf as *const ELF32),
+            data    : Bytes::default(),
+            name    : "".to_string()
         }
     }
 
-    fn get_shname(&self) -> String {
-        String::default()
+    pub fn get_name(&self) -> &String {
+        unsafe {
+            if self.name.len() != 0 {
+                return &self.name;
+            }
+            let data = &*(*self.self_elf.unwrap()).get_shtab();
+            let mut index = self.sh_name as usize;
+            let start = index;
+            while index < data.len() {
+                if data[index] != 0 {
+                    index += 1;
+                } else {
+                    break;
+                }
+            }
+
+            i_to_m(self).name = std::str::from_utf8(&data[start..index].to_vec())
+                .unwrap_or(&"None".to_string()).to_string();
+            &self.name
+        }
+    }
+
+    fn get_elf(&self) -> &ELF32 {
+        unsafe {
+            &*self.self_elf.unwrap()
+        }
+    }
+
+    pub fn get_data(&self) -> &Bytes {
+        unsafe {
+            if self.data.len() != 0 {
+                return &self.data;
+            }
+            let elf = self.get_elf();
+            let data = elf.get_data();
+            i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
+            return &self.data;
+        }
     }
 }
 
 impl Elf64_Shdr {
-    fn new(bytes : &Bytes,elf : &ELF64) -> Elf64_Shdr {
-        Elf64_Shdr { 
-            sh_name: (&bytes[0..4]).get_u32(), 
-            sh_type: (&bytes[4..8]).get_u32(), 
-            sh_flags: (&bytes[8..16]).get_u64(), 
-            sh_addr: Elf64_Addr((&bytes[16..24]).get_u64()), 
-            sh_offset: Elf64_Off((&bytes[24..32]).get_u64()), 
-            sh_size: (&bytes[32..40]).get_u64(), 
-            sh_link: (&bytes[40..44]).get_u32(), 
-            sh_info: (&bytes[44..48]).get_u32(), 
-            sh_addralign: (&bytes[48..56]).get_u64(), 
-            sh_entsize: (&bytes[56..64]).get_u64(),
-            self_elf: Some(elf as *const ELF64)
+    fn new(bytes: &Bytes, elf: &ELF64) -> Elf64_Shdr {
+        Elf64_Shdr {
+            sh_name: (&bytes[0..4]).get_u32_le(),
+            sh_type: (&bytes[4..8]).get_u32_le(),
+            sh_flags: (&bytes[8..16]).get_u64_le(),
+            sh_addr: Elf64_Addr((&bytes[16..24]).get_u64_le()),
+            sh_offset: Elf64_Off((&bytes[24..32]).get_u64_le()),
+            sh_size: (&bytes[32..40]).get_u64_le(),
+            sh_link: (&bytes[40..44]).get_u32_le(),
+            sh_info: (&bytes[44..48]).get_u32_le(),
+            sh_addralign: (&bytes[48..56]).get_u64_le(),
+            sh_entsize: (&bytes[56..64]).get_u64_le(),
+            self_elf: Some(elf as *const ELF64),
+            data    : Bytes::default(),
+            name    : "".to_string()
         }
     }
+
+    pub fn get_name(&self) -> &String {
+        unsafe {
+            if self.name.len() != 0 {
+                return &self.name;
+            }
+            let data = &*(*self.self_elf.unwrap()).get_shtab();
+            let mut index = self.sh_name as usize;
+            let start = index;
+            while index < data.len() {
+                if data[index] != 0 {
+                    index += 1;
+                } else {
+                    break;
+                }
+            }
+
+            i_to_m(self).name = std::str::from_utf8(&data[start..index].to_vec())
+                .unwrap_or(&"None".to_string()).to_string();
+            &self.name
+        }
+    }
+
+    fn get_elf(&self) -> &ELF64 {
+        unsafe {
+            &*self.self_elf.unwrap()
+        }
+    }
+
+    pub fn get_data(&self) -> &Bytes {
+        unsafe {
+            if self.data.len() != 0 {
+                return &self.data;
+            }
+            let elf = self.get_elf();
+            let data = elf.get_data();
+            i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
+            return &self.data;
+        }
+    }
+
 }
-#[derive(Default,Debug)]
+
+pub struct Elf32_Sym {
+    st_name     : u32,
+    st_value    : Elf32_Addr,
+    st_size     : u32,
+    st_info     : u8,
+    st_other    : u8,
+    st_shndx    : u16,
+    self_elf    : Option<*const ELF32>
+}
+
+impl Elf32_Sym {
+    pub fn parse(bytes: &Bytes,elf: *const ELF32) -> Elf32_Sym {
+        Elf32_Sym {
+            st_name : (&bytes[0..4]).get_u32_le(),
+            st_value : Elf32_Addr((&bytes[4..8]).get_u32_le()),
+            st_size : (&bytes[8..12]).get_u32_le(),
+            st_info : (&bytes[12..13]).get_u8(),
+            st_other : (&bytes[13..14]).get_u8(),
+            st_shndx  : (&bytes[14..16]).get_u16_le(),
+            self_elf  : Some(elf as *const ELF32)
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        unsafe {
+            let elf = &(*self.self_elf.unwrap());
+            let str_data = elf.get_strtab_data();
+            return get_str_to_zero(&str_data, self.st_name as usize).unwrap_or("".to_string());
+        }
+    }
+
+    pub fn get_value(&self) -> &Elf32_Addr {
+        &self.st_value
+    }
+}
+
+pub struct Elf64_Sym {
+    st_name     : u32,
+    st_info     : u8,
+    st_other    : u8,
+    st_shndx    : u16,
+    st_value    : Elf64_Addr,
+    st_size     : u64,
+    self_elf    : Option<*const ELF64>
+}
+
+fn get_str_to_zero(v: &Vec<u8>,i: usize) -> Result<String,MRError> {
+    let mut index = i;
+    let start = index;
+    
+    while index < v.len() {
+        if v[index] != 0 {
+            index += 1;
+        } else {
+            break;
+        }
+    }
+    let bind = v[start..index].to_vec();
+    
+    let res = String::from_utf8(bind).expect("msg");
+
+    Ok(res)
+}
+
+impl Elf64_Sym {
+    pub fn parse(bytes: &Bytes,elf: &ELF64) -> Elf64_Sym {
+        Elf64_Sym {
+            st_name : (&bytes[0..4]).get_u32_le(),
+            st_info : (&bytes[4..5]).get_u8(),
+            st_other : (&bytes[5..6]).get_u8(),
+            st_shndx : (&bytes[6..8]).get_u16_le(),
+            st_value : Elf64_Addr((&bytes[8..16]).get_u64_le()),
+            st_size  : (&bytes[16..24]).get_u64_le(),
+            self_elf : Some(elf as *const ELF64)
+        }
+    }
+
+    pub fn get_name(&self) -> String {
+        unsafe {
+            let elf = &(*self.self_elf.unwrap());
+            let str_data = elf.get_strtab_data();
+            return get_str_to_zero(&str_data, self.st_name as usize).unwrap_or("".to_string());
+        }
+    }
+
+    pub fn get_value(&self) -> &Elf64_Addr {
+        &self.st_value
+    }
+}
+#[derive(Default, Debug)]
 pub struct ELF32 {
-    ehdr  : Elf32_Ehdr,
-    phdrs : Vec<Elf32_Phdr>,
-    shdrs : Vec<Elf32_Shdr>,
-    data  : Bytes
+    ehdr: Elf32_Ehdr,
+    phdrs: Vec<Elf32_Phdr>,
+    shdrs: Vec<Elf32_Shdr>,
+    data: Bytes,
+    shtab: Vec<u8>,
+    symstrtab : Vec<u8>
 }
 
 impl ELF32 {
@@ -378,14 +535,70 @@ impl ELF32 {
     fn get_shsize(&self) -> usize {
         return self.ehdr._ehdr.e_shentsize as usize;
     }
+
+    pub fn get_shtab(&self) -> &Vec<u8> {
+        &self.shtab
+    }
+
+    pub fn get_strtab(&self) -> &Vec<u8> {
+        &self.shtab
+    }
+
+    pub fn get_data(&self) -> &Bytes {
+        return &self.data;
+    }
+
+    pub fn get_shdrs(&self) -> &Vec<Elf32_Shdr> {
+        return &self.shdrs;
+    }
+
+    pub fn get_symtab(&self) -> Result<&Elf32_Shdr,MRError> {
+        for shdr in &self.shdrs {
+            if shdr.sh_type == ShdrType::SHT_SYMTAB as u32 {
+                return Ok(shdr)
+            }
+        }
+        Err(MRError::new("Not found symtab"))
+    }
+
+    pub fn get_syms(&self) -> Result<Vec<Elf32_Sym>,MRError> {
+        let mut result: Vec<Elf32_Sym> = Vec::default();
+        let symtab = self.get_symtab();
+        let symtab = match symtab {
+            Ok(tab) => tab,
+            Err(err) => {
+                return Err(err);
+            }
+        };
+
+        let data = symtab.get_data();
+        let mut index = 0;
+        while index <= data.len()-24 {
+            let sym = Elf32_Sym::parse(&data.slice(index..index+24),self);
+            result.push(sym);
+            index += 24;
+        }
+        Ok(result)
+    }
+
+    pub fn get_strtab_data(&self) -> &Vec<u8> {
+        if self.symstrtab.len() != 0 {
+            return &self.symstrtab;
+        }
+        let mut result: Vec<u8> = Vec::default();
+        i_to_m(self).symstrtab = self.shdrs[self.get_shnum()-1].get_data().to_vec();
+        &self.symstrtab
+    }
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct ELF64 {
-    ehdr    : Elf64_Ehdr,
-    phdrs   : Vec<Elf64_Phdr>,
-    shdrs   : Vec<Elf64_Shdr>,
-    data    : Bytes
+    ehdr: Elf64_Ehdr,
+    phdrs: Vec<Elf64_Phdr>,
+    shdrs: Vec<Elf64_Shdr>,
+    data: Bytes,
+    shtab: Vec<u8>,
+    symstrtab : Vec<u8>
 }
 
 impl ELF64 {
@@ -405,19 +618,59 @@ impl ELF64 {
         return self.ehdr._ehdr.e_shentsize as usize;
     }
 
+    pub fn get_shtab(&self) -> &Vec<u8> {
+        &self.shtab
+    }
 
-    fn get_strtab_section(&self) -> Range<usize> {
-        for i in 0..self.get_shnum() {
-            if self.shdrs[i].sh_type == ShdrType::SHT_STRTAB as u32 {
+    pub fn get_data(&self) -> &Bytes {
+        return &self.data;
+    }
 
+    pub fn get_shdrs(&self) -> &Vec<Elf64_Shdr> {
+        return &self.shdrs;
+    }
+
+    pub fn get_symtab(&self) -> Result<&Elf64_Shdr,MRError> {
+        for shdr in &self.shdrs {
+            if shdr.sh_type == ShdrType::SHT_SYMTAB as u32 {
+                return Ok(shdr)
             }
         }
-        unimplemented!()
+        Err(MRError::new("Not found symtab"))
+    }
+
+    pub fn get_syms(&self) -> Result<Vec<Elf64_Sym>,MRError> {
+        let mut result: Vec<Elf64_Sym> = Vec::default();
+        let symtab = self.get_symtab();
+        let symtab = match symtab {
+            Ok(tab) => tab,
+            Err(err) => {
+                return Err(err);
+            }
+        };
+
+        let data = symtab.get_data();
+        let mut index = 0;
+        while index <= data.len()-24 {
+            let sym = Elf64_Sym::parse(&data.slice(index..index+24),self);
+            result.push(sym);
+            index += 24;
+        }
+        Ok(result)
+    }
+
+    pub fn get_strtab_data(&self) -> &Vec<u8> {
+        if self.symstrtab.len() != 0 {
+            return &self.symstrtab;
+        }
+        let mut result: Vec<u8> = Vec::default();
+        i_to_m(self).symstrtab = self.shdrs[self.get_shnum()-1].get_data().to_vec();
+        &self.symstrtab
     }
 }
 
 impl ELF32 {
-    pub fn new(file : String) -> ELF32 {
+    pub fn new(file: String) -> ELF32 {
         let mut elf = ELF32::default();
         let f = fs::read(file).expect("no such a file");
         let bytes = Bytes::from(f);
@@ -425,31 +678,39 @@ impl ELF32 {
         let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
         let mut start = 0 as usize;
         for _ in 0..elf.get_phnum() {
-            let phdr_bytes = bytes.slice(phdr_offset+start..bytes.len());
-            elf.phdrs.push(Elf32_Phdr::new(&phdr_bytes,&elf));
+            let phdr_bytes = bytes.slice(phdr_offset + start..bytes.len());
+            elf.phdrs.push(Elf32_Phdr::new(&phdr_bytes, &elf));
             start += elf.get_phsize();
         }
         let shdr_offset = elf.ehdr.get_shdr_offset().0 as usize;
         let shdr_bytes = bytes.slice(shdr_offset..bytes.len());
-        elf.shdrs.push(Elf32_Shdr::new(&shdr_bytes,&elf));
+        elf.shdrs.push(Elf32_Shdr::new(&shdr_bytes, &elf));
         start = 0;
         for _ in 0..elf.get_shnum() {
-            let shdr_bytes = bytes.slice(shdr_offset+start..bytes.len());
-            elf.shdrs.push(Elf32_Shdr::new(&shdr_bytes,&elf));
+            let shdr_bytes = bytes.slice(shdr_offset + start..bytes.len());
+            elf.shdrs.push(Elf32_Shdr::new(&shdr_bytes, &elf));
             start += elf.get_shsize();
         }
         elf.data = bytes;
+        let section = &elf.shdrs[elf.get_shnum()];
+        let range = Range {
+            start: section.sh_offset.0 as usize,
+            end: (section.sh_offset.0 + section.sh_size) as usize,
+        };
+        let tmp = elf.data[range].to_vec();
+        elf.shtab = tmp;
         elf
     }
 
-    pub fn get_ehdr (&self) -> &Elf32_Ehdr {
+    pub fn get_ehdr(&self) -> &Elf32_Ehdr {
         &self.ehdr
     }
+
+    
 }
 
-
 impl ELF64 {
-    pub fn new(file : String) -> ELF64 {
+    pub fn new(file: String) -> ELF64 {
         let mut elf = ELF64::default();
         let f = fs::read(file).expect("no such a file");
         let bytes = Bytes::from(f);
@@ -457,8 +718,8 @@ impl ELF64 {
         let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
         let mut start = 0 as usize;
         for _ in 0..elf.get_phnum() {
-            let phdr_bytes = bytes.slice(phdr_offset+start..bytes.len());
-            elf.phdrs.push(Elf64_Phdr::new(&phdr_bytes,&elf));
+            let phdr_bytes = bytes.slice(phdr_offset + start..bytes.len());
+            elf.phdrs.push(Elf64_Phdr::new(&phdr_bytes, &elf));
             start += elf.get_phsize();
         }
         let shdr_offset = elf.ehdr.get_shdr_offset().0 as usize;
@@ -466,11 +727,49 @@ impl ELF64 {
         elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
         start = 0;
         for _ in 0..elf.get_shnum() {
-            let shdr_bytes = bytes.slice(shdr_offset+start..bytes.len());
+            let shdr_bytes = bytes.slice(shdr_offset + start..bytes.len());
             elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
             start += elf.get_shsize();
         }
         elf.data = bytes;
+        let section = &elf.shdrs[elf.get_shnum()];
+        let range = Range {
+            start: section.sh_offset.0 as usize,
+            end: (section.sh_offset.0 + section.sh_size) as usize,
+        };
+        let tmp = elf.data[range].to_vec();
+        elf.shtab = tmp;
+        elf
+    }
+
+    pub fn from_bytes(bytes: &Bytes) -> ELF64{
+        let mut elf = ELF64::default();
+        elf.ehdr = Elf64_Ehdr::new(&bytes);
+        let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
+        let mut start = 0 as usize;
+        for _ in 0..elf.get_phnum() {
+            let phdr_bytes = bytes.slice(phdr_offset + start..bytes.len());
+            elf.phdrs.push(Elf64_Phdr::new(&phdr_bytes, &elf));
+            start += elf.get_phsize();
+        }
+        let shdr_offset = elf.ehdr.get_shdr_offset().0 as usize;
+        let shdr_bytes = bytes.slice(shdr_offset..bytes.len());
+        elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
+        start = 0;
+        for _ in 0..elf.get_shnum() {
+            let shdr_bytes = bytes.slice(shdr_offset + start..bytes.len());
+            elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
+            start += elf.get_shsize();
+        }
+
+        elf.data = Bytes::copy_from_slice(bytes);
+        let section = &elf.shdrs[elf.get_shnum()];
+        let range = Range {
+            start: section.sh_offset.0 as usize,
+            end: (section.sh_offset.0 + section.sh_size) as usize,
+        };
+        let tmp = elf.data[range].to_vec();
+        elf.shtab = tmp;
         elf
     }
 }
