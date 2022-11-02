@@ -4,7 +4,7 @@ use std::{fs, io::BufRead, ops::Range};
 
 use bytes::{Buf, Bytes, BytesMut};
 
-use crate::utils::{MRError, funcs::i_to_m};
+use crate::utils::{MRError, funcs::i_to_m, file::MRFile};
 
 #[derive(Default, Debug)]
 pub struct Elf32_Addr(pub u32);
@@ -412,8 +412,9 @@ impl Elf64_Shdr {
                 return &self.data;
             }
             let elf = self.get_elf();
-            let data = elf.get_data();
-            i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
+            let data = elf.get_elf();
+            //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
+            i_to_m(self).data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
             return &self.data;
         }
     }
@@ -596,9 +597,9 @@ pub struct ELF64 {
     ehdr: Elf64_Ehdr,
     phdrs: Vec<Elf64_Phdr>,
     shdrs: Vec<Elf64_Shdr>,
-    data: Bytes,
     shtab: Vec<u8>,
-    symstrtab : Vec<u8>
+    symstrtab : Vec<u8>,
+    elf_file    : MRFile
 }
 
 impl ELF64 {
@@ -622,8 +623,8 @@ impl ELF64 {
         &self.shtab
     }
 
-    pub fn get_data(&self) -> &Bytes {
-        return &self.data;
+    pub fn get_elf(&self) -> &MRFile {
+        return &self.elf_file;
     }
 
     pub fn get_shdrs(&self) -> &Vec<Elf64_Shdr> {
@@ -712,64 +713,34 @@ impl ELF32 {
 impl ELF64 {
     pub fn new(file: String) -> ELF64 {
         let mut elf = ELF64::default();
-        let f = fs::read(file).expect("no such a file");
-        let bytes = Bytes::from(f);
-        elf.ehdr = Elf64_Ehdr::new(&bytes);
+        let file2 = file.clone();
+        
+        let mr_f = MRFile::new(file2.as_str()).unwrap();
+        elf.ehdr = Elf64_Ehdr::new(&Bytes::from(mr_f.read_n(0, 64).unwrap()));
         let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
         let mut start = 0 as usize;
         for _ in 0..elf.get_phnum() {
-            let phdr_bytes = bytes.slice(phdr_offset + start..bytes.len());
-            elf.phdrs.push(Elf64_Phdr::new(&phdr_bytes, &elf));
+            let phdr_bytes = mr_f.read_n(phdr_offset + start, elf.get_phsize()).unwrap();
+            elf.phdrs.push(Elf64_Phdr::new(&Bytes::from(phdr_bytes), &elf));
             start += elf.get_phsize();
         }
         let shdr_offset = elf.ehdr.get_shdr_offset().0 as usize;
-        let shdr_bytes = bytes.slice(shdr_offset..bytes.len());
-        elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
+        let shdr_bytes = mr_f.read_n(shdr_offset, 64).unwrap();
+        elf.shdrs.push(Elf64_Shdr::new(&Bytes::from(shdr_bytes), &elf));
         start = 0;
         for _ in 0..elf.get_shnum() {
-            let shdr_bytes = bytes.slice(shdr_offset + start..bytes.len());
-            elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
+            let shdr_bytes = mr_f.read_n(shdr_offset + start, 64).unwrap();
+            elf.shdrs.push(Elf64_Shdr::new(&Bytes::from(shdr_bytes), &elf));
             start += elf.get_shsize();
         }
-        elf.data = bytes;
         let section = &elf.shdrs[elf.get_shnum()];
         let range = Range {
             start: section.sh_offset.0 as usize,
             end: (section.sh_offset.0 + section.sh_size) as usize,
         };
-        let tmp = elf.data[range].to_vec();
-        elf.shtab = tmp;
+        elf.shtab = mr_f.read_n(section.sh_offset.0 as usize, section.sh_size as usize).unwrap();
+        elf.elf_file = mr_f;
         elf
     }
 
-    pub fn from_bytes(bytes: &Bytes) -> ELF64{
-        let mut elf = ELF64::default();
-        elf.ehdr = Elf64_Ehdr::new(&bytes);
-        let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
-        let mut start = 0 as usize;
-        for _ in 0..elf.get_phnum() {
-            let phdr_bytes = bytes.slice(phdr_offset + start..bytes.len());
-            elf.phdrs.push(Elf64_Phdr::new(&phdr_bytes, &elf));
-            start += elf.get_phsize();
-        }
-        let shdr_offset = elf.ehdr.get_shdr_offset().0 as usize;
-        let shdr_bytes = bytes.slice(shdr_offset..bytes.len());
-        elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
-        start = 0;
-        for _ in 0..elf.get_shnum() {
-            let shdr_bytes = bytes.slice(shdr_offset + start..bytes.len());
-            elf.shdrs.push(Elf64_Shdr::new(&shdr_bytes, &elf));
-            start += elf.get_shsize();
-        }
-
-        elf.data = Bytes::copy_from_slice(bytes);
-        let section = &elf.shdrs[elf.get_shnum()];
-        let range = Range {
-            start: section.sh_offset.0 as usize,
-            end: (section.sh_offset.0 + section.sh_size) as usize,
-        };
-        let tmp = elf.data[range].to_vec();
-        elf.shtab = tmp;
-        elf
-    }
 }
