@@ -254,12 +254,12 @@ impl Elf64_Phdr {
     fn new(bytes: &Bytes, elf: &ELF64) -> Elf64_Phdr {
         let mut phdr = Elf64_Phdr::default();
         phdr._phdr.p_type = (&bytes[0..4]).get_u32_le();
-        phdr.p_offset = Elf64_Off((&bytes[4..12]).get_u64_le());
-        phdr.p_vaddr = Elf64_Addr((&bytes[12..20]).get_u64_le());
-        phdr.p_paddr = Elf64_Addr((&bytes[20..28]).get_u64_le());
-        phdr.p_filesz = (&bytes[28..36]).get_u64_le();
-        phdr.p_memsz = (&bytes[36..44]).get_u64_le();
-        phdr._phdr.p_flags = (&bytes[44..48]).get_u32_le();
+        phdr._phdr.p_flags = (&bytes[4..8]).get_u32_le();
+        phdr.p_offset = Elf64_Off((&bytes[8..16]).get_u64_le());
+        phdr.p_vaddr = Elf64_Addr((&bytes[16..24]).get_u64_le());
+        phdr.p_paddr = Elf64_Addr((&bytes[24..32]).get_u64_le());
+        phdr.p_filesz = (&bytes[32..40]).get_u64_le();
+        phdr.p_memsz = (&bytes[40..48]).get_u64_le();
         phdr.p_align = (&bytes[48..56]).get_u64_le();
         phdr.self_elf = Some(elf as *const ELF64);
         phdr
@@ -734,10 +734,7 @@ impl ELF64 {
             start += elf.get_shsize();
         }
         let section = &elf.shdrs[elf.get_shnum()];
-        let range = Range {
-            start: section.sh_offset.0 as usize,
-            end: (section.sh_offset.0 + section.sh_size) as usize,
-        };
+
         elf.shtab = mr_f.read_n(section.sh_offset.0 as usize, section.sh_size as usize).unwrap();
         elf.elf_file = mr_f;
         elf
