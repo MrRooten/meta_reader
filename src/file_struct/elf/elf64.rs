@@ -329,6 +329,30 @@ impl ELF64 {
         i_to_m(self).symstrtab = self.shdrs[self.get_shnum()-1].get_data().to_vec();
         &self.symstrtab
     }
+
+    pub fn get_comment(&self) -> Result<String,MRError> {
+        let shdrs = self.get_shdrs();
+        let mut commend_section = None::<&Elf64_Shdr>;
+        for shdr in shdrs {
+            if shdr.sh_type == ShdrType::SHT_PROGBITS as u32 {
+                commend_section = Some(shdr);
+            }
+        }
+
+        if commend_section.is_none() {
+            return Err(MRError::new("No commend section of this elf"));
+        }
+
+        let commend_section = commend_section.unwrap();
+        let s = std::str::from_utf8(commend_section.get_data());
+        let s = match s {
+            Ok(str) => str,
+            Err(e) => {
+                return Err(MRError::from(Box::new(e)));
+            }
+        };
+        Ok(s.to_string())
+    }
 }
 
 
