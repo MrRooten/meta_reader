@@ -2,7 +2,7 @@ use bytes::{Bytes, Buf};
 
 use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 
-use super::{Ext4, SuperBlock, GroupDescriptor, InodeBitmap, DataBlockBitmap, Inode};
+use super::{Ext4, SuperBlock, GroupDescriptor, Inode};
 
 impl Ext4 {
     pub fn open(path: &str) -> Result<Self,MRError> {
@@ -27,10 +27,20 @@ impl Ext4 {
         super_block.s_inodes_count = (&sbytes[0..4]).get_u32_le();
         super_block.s_block_count = (&sbytes[4..8]).get_u32_le();
         super_block.s_log_block_size = (&sbytes[0x18..0x1c]).get_u32_le();
+        super_block.s_inodes_per_group = (&sbytes[0x28..0x2c]).get_u32_le();
         super_block.s_creator_os = (&sbytes[0x48..0x4c]).get_u32_le();
+        super_block.s_inode_size = (&sbytes[0x58..0x5a]).get_u16_le();
         super_block.s_reserved_gdt_blocks = (&sbytes[0xce..0xd0]).get_u16_le();
         super_block.s_desc_size = (&sbytes[0xfe..0x100]).get_u16_le();
-        super_block.s_log_groups_per_flex = (&sbytes[0x174..0x175]).get_u8();
+        if super_block.s_desc_size == 64 {
+            super_block.is_64bit = true;
+        } else {
+            super_block.is_64bit = false;
+        }
+        //if 64bit feature is set
+        if super_block.is_64bit {
+            super_block.s_log_groups_per_flex = (&sbytes[0x174..0x175]).get_u8();
+        }
         self.super_block = Some(super_block);
         match &self.super_block {
             Some(o) => {
@@ -75,10 +85,10 @@ impl Ext4 {
             }
         };
         let block_size = num::pow(2,(10+super_block.s_log_block_size) as usize);
+        let descs_size = super_block.s_desc_size as usize;
         if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
             return Err(MRError::new("Parse error: block_size is not right"));
         }
-        let descs_size = super_block.s_desc_size as usize;
         let len = super_block.s_log_groups_per_flex as usize * descs_size;
         if len % descs_size != 0 {
             return Err(MRError::new("Parse error: Group Descriptor size is not right"));
@@ -88,13 +98,13 @@ impl Ext4 {
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
         loop {
-            let gdt = self.reader.read_n(block_size + i, 64).expect("error");
+            let gdt = self.reader.read_n(block_size + i, descs_size).expect("error");
             let gdt = Bytes::from(gdt);
             if (&gdt[0..4]).get_u32_le() == 0 {
                 break;
             }
-            result.push(GroupDescriptor::parse(gdt));
-            i += 64;
+            result.push(GroupDescriptor::parse(gdt,&self));
+            i += descs_size;
         }
         self.group_descriptors = Some(result);
         match &self.group_descriptors {
@@ -165,6 +175,9 @@ impl Ext4 {
         self.get_inode_by_id(7)
     }
 
+    pub fn get_block_size(&self) -> usize {
+        unimplemented!()
+    }
 
 }
 

@@ -21,37 +21,44 @@ pub struct SuperBlock {
     s_clusters_per_group    : u32,          //0x24
     s_inodes_per_group      : u32,          //0x28
     s_creator_os            : u32,          //0x48
+    s_inode_size            : u16,
     s_uuid                  : [u8;16],
     s_volume_name           : [char;16],
     s_encrypt_algos         : u8,
     s_checksum              : u32,
     s_desc_size             : u16,
     s_reserved_gdt_blocks   : u16,
-    s_log_groups_per_flex   : u8
-    
+    s_log_groups_per_flex   : u8,
+    is_64bit                : bool
 }
 
 #[derive(Debug,Default)]
 pub struct GroupDescriptor {
     bg_block_bitmap_lo      : u32,
+    bg_block_bitmap_hi      : u32,
     bg_inode_bitmap_lo      : u32,
-    bg_indoe_table_lo       : u32,
+    bg_inode_bitmap_hi      : u32,
+    bg_inode_table_lo       : u32,
+    bg_inode_table_hi       : u32,
     bg_free_blocks_count_lo : u16,
+    bg_free_blocks_count_hi : u16,
     bg_free_inodes_count_lo : u16,
+    bg_free_inodes_count_hi : u16,
     bg_used_dirs_count_lo   : u16,
+    bg_used_dirs_count_hi   : u16,
+
+    ext4_to_self            : Option<*const Ext4>,
+    is_64bit                : bool
 }
 
 pub struct ReservedGDTBlock {
 
 }
 
-pub struct DataBlockBitmap {
-
+pub struct Bitmap {
+    bitmap                  : Bytes
 }
 
-pub struct InodeBitmap {
-
-}
 
 pub struct DataBlock {
 
