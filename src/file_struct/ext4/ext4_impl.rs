@@ -89,6 +89,7 @@ impl Ext4 {
         if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
             return Err(MRError::new("Parse error: block_size is not right"));
         }
+        
         let len = super_block.s_log_groups_per_flex as usize * descs_size;
         if len % descs_size != 0 {
             return Err(MRError::new("Parse error: Group Descriptor size is not right"));
@@ -97,6 +98,8 @@ impl Ext4 {
         let sbytes = self.reader.read_n(block_size, len).expect("error");
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
+        let mut count = 0;
+        self.block_size = block_size;
         loop {
             let gdt = self.reader.read_n(block_size + i, descs_size).expect("error");
             let gdt = Bytes::from(gdt);
@@ -105,8 +108,10 @@ impl Ext4 {
             }
             result.push(GroupDescriptor::parse(gdt,&self));
             i += descs_size;
+            count += 1;
         }
         self.group_descriptors = Some(result);
+        
         match &self.group_descriptors {
             Some(o) => {
                 return Ok(o);
@@ -115,6 +120,16 @@ impl Ext4 {
                 return Err(MRError::new("Can not parse group descriptors"));
             }
         }
+    }
+
+    fn set_inode_tables(&mut self) -> Result<&Vec<Inode>,MRError> {
+        let descs = self.get_descs().unwrap();
+
+        unimplemented!()
+    }
+
+    pub fn get_reader(&mut self) -> &MRFile {
+        &self.reader
     }
 
     pub fn get_descs(&self) -> Result<&Vec<GroupDescriptor>,MRError> {
@@ -143,8 +158,25 @@ impl Ext4 {
         self.get_super_block().unwrap().s_desc_size
     }
 
+    pub fn get_s_inodes_per_group(&self) -> u32 {
+        self.get_super_block().unwrap().s_inodes_per_group
+    }
+
+    pub fn get_reserved_gdt_num(&self) -> u16 {
+        self.get_super_block().unwrap().s_reserved_gdt_blocks
+    }
+
+    pub fn get_s_inode_size(&self) -> u16 {
+        self.get_super_block().unwrap().s_inode_size
+    }
+
     pub fn get_inode_by_id(&self, id: u32) -> Inode {
-        unimplemented!()
+        let s_inodes_per_group = self.get_s_inodes_per_group();
+        let index = (id - 1) / s_inodes_per_group;
+        let offset = index * self.get_s_inode_size() as u32;
+        let gdts = self.get_descs().unwrap();
+        let gdt = &gdts[index as usize];
+        gdt.get_inode(id)
     }
 
     pub fn get_inode_by_fname(&self, fname: &str) -> Inode {
@@ -176,7 +208,7 @@ impl Ext4 {
     }
 
     pub fn get_block_size(&self) -> usize {
-        unimplemented!()
+        self.block_size
     }
 
 }

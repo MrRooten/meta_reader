@@ -1,6 +1,8 @@
 use std::ops::Range;
 use bytes::Buf;
 
+use crate::utils::funcs::i_to_m;
+
 use super::*;
 
 impl GroupDescriptor {
@@ -28,17 +30,54 @@ impl GroupDescriptor {
         }
     }
 
-    pub fn get_inode_table(&self) -> Range<usize> {
+    pub fn get_free_inodes(&self) -> u32 {
+        ((self.bg_free_inodes_count_hi as u32) << 16) + self.bg_free_inodes_count_lo as u32
+    }
+
+    pub fn get_inode(&self, id: u32) -> Inode {
         unsafe {
             let ext4 = &(*self.ext4_to_self.unwrap());
+            let reader = i_to_m(ext4).get_reader();
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_table_lo as usize;
             if self.is_64bit {
-                offset = (self.bg_inode_table_lo as usize) << 32 | offset;
+                offset = (self.bg_inode_table_hi as usize) << 32 | offset;
+            }
+            
+            let sb = ext4.get_super_block().unwrap();
+            let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
+            let s_inodes = sb.s_inodes_per_group;
+            let len = s_inodes - self.get_free_inodes();
+            let index = (id - 1) % sb.s_inodes_per_group;
+            let mut base = offset * ext4.get_block_size() + index as usize * 0x100;
+            let bs = reader.read_n(base, 0x100).unwrap();
+            let inode = Inode::parse(&Bytes::from(bs));
+            inode
+        }
+    }
+
+    pub fn iter_inodes(&self, f: fn(Inode)) {
+        unsafe {
+            let ext4 = &(*self.ext4_to_self.unwrap());
+            let reader = i_to_m(ext4).get_reader();
+            let block_size = ext4.get_block_size();
+            let mut offset = self.bg_inode_table_lo as usize;
+            if self.is_64bit {
+                offset = (self.bg_inode_table_hi as usize) << 32 | offset;
             }
             let sb = ext4.get_super_block().unwrap();
             let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
-            Range { start: offset, end: offset + table_size }
+            let s_inodes = sb.s_inodes_per_group;
+            let len = s_inodes - self.get_free_inodes();
+            let mut i = 0;
+            let mut base = offset * ext4.get_block_size();
+            while i < len {
+                let bs = reader.read_n(base, 0x100).unwrap();
+                let inode = Inode::parse(&Bytes::from(bs));
+                f(inode);
+                base += 0x100;
+                i += 1;
+            }
         }
     }
 
