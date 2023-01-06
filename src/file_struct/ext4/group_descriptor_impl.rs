@@ -30,7 +30,7 @@ impl GroupDescriptor {
         }
     }
 
-    pub fn get_free_inodes(&self) -> u32 {
+    pub fn count_free_inodes(&self) -> u32 {
         ((self.bg_free_inodes_count_hi as u32) << 16) + self.bg_free_inodes_count_lo as u32
     }
 
@@ -47,11 +47,11 @@ impl GroupDescriptor {
             let sb = ext4.get_super_block().unwrap();
             let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
             let s_inodes = sb.s_inodes_per_group;
-            let len = s_inodes - self.get_free_inodes();
+            let len = s_inodes - self.count_free_inodes();
             let index = (id - 1) % sb.s_inodes_per_group;
             let mut base = offset * ext4.get_block_size() + index as usize * 0x100;
             let bs = reader.read_n(base, 0x100).unwrap();
-            let inode = Inode::parse(&Bytes::from(bs));
+            let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64);
             inode
         }
     }
@@ -68,12 +68,12 @@ impl GroupDescriptor {
             let sb = ext4.get_super_block().unwrap();
             let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
             let s_inodes = sb.s_inodes_per_group;
-            let len = s_inodes - self.get_free_inodes();
+            let len = s_inodes - self.count_free_inodes();
             let mut i = 0;
             let mut base = offset * ext4.get_block_size();
             while i < len {
                 let bs = reader.read_n(base, 0x100).unwrap();
-                let inode = Inode::parse(&Bytes::from(bs));
+                let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64);
                 f(inode);
                 base += 0x100;
                 i += 1;

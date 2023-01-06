@@ -57,11 +57,15 @@ pub struct ReservedGDTBlock {
 
 }
 
+pub struct Block {
+
+}
+
 pub struct Bitmap {
     bitmap                  : Bytes
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct ExtentHeader {
     eh_magic        : u16,
     eh_entries      : u16,
@@ -70,34 +74,54 @@ pub struct ExtentHeader {
     eh_generation   : u32
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct ExtentIdx {
     ei_block        : u32,
-    ei_leaf_lo      : u16,
+    ei_leaf_lo      : u32,
     ei_leaf_hi      : u16,
-    ei_unused       : u32
+    ei_unused       : u16
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct Extent {
     ee_block        : u32,
     ee_len          : u16,
     ee_start_hi     : u16,
-    ee_start_lo     : u16
+    ee_start_lo     : u32
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub enum ExtentNodeType {
     ExtentType,
     IdxType
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct ExtentNode {
     header          : ExtentHeader,
     idx_items       : Vec<ExtentIdx>,
     extents         : Vec<Extent>,
-    node_type       : ExtentNodeType
+    node_type       : ExtentNodeType,
+    base_addr       : u64
+}
+
+pub enum FileType {
+    Unknown=0x0,
+    RegularFile=0x1,
+    Directory=0x2,
+    CharacterDeviceFile=0x3,
+    BlockDeviceFile=0x4,
+    FIFO=0x5,
+    Socket=0x6,
+    SymbolicLink=0x7
+}
+
+pub struct DirectoryEntry {
+    inode           : u32,
+    rec_len         : u16,
+    name_len        : u16,
+    file_type       : FileType,
+    name            : Vec<u8>
 }
 
 type ExtentTree = ExtentNode;
@@ -107,6 +131,7 @@ pub enum FileMode {
     S_IXOTH=0x1,
     S_IWOTH=0x2,
     S_IROTH=0x3,
+    S_IFDIR=0x4000
 }
 
 #[derive(Debug)]
@@ -131,23 +156,18 @@ pub struct Inode {
     i_checksum_hi       : u16,
     i_ctime_extra       : u32,
     i_mtime_extra       : u32,
-    i_ateim_extra       : u32,
+    i_atime_extra       : u32,
     i_crtime            : u32,
     i_crtime_extra      : u32,
     i_version_hi        : u32,
     i_projid            : u32,
+
+    ext4                : Option<*const Ext4>,
+    base_addr           : u64
 }
 
 pub struct InodeTableIter {
 
-}
-
-impl Iterator for InodeTableIter {
-    type Item = Inode;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
 }
 
 pub enum HASH_VERSION {
@@ -157,4 +177,47 @@ pub enum HASH_VERSION {
     LeacyUnsigned,
     HalfMD4Unsigned,
     TeaUnsigned
+}
+
+
+pub struct JournalHeader {
+    h_magic         : u32,
+    h_blocktype     : u32,
+    h_sequence      : u32,
+}
+
+pub struct JournalSuperBlock {
+    header          : JournalHeader,
+    s_blocksize     : u32,
+    s_maxlen        : u32,
+    s_first         : u32,
+    s_errno         : u32,
+    s_max_transaction   : u32,
+    s_max_trans_data    : u32,
+    s_feature_compat    : u32,
+    s_feature_incompat  : u32,
+    s_feature_ro_compat	: u32,
+
+}
+
+pub struct JournalBlockTag {
+    blocknr         : u32,
+    blocknr_high    : u32
+}
+
+pub struct RevocationBlock {
+    header      : JournalHeader,
+    r_count     : u32,
+    blocks      : u64
+}
+
+pub struct CommitBlock {
+    header              : JournalHeader,
+    commit_sec          : u64,
+    commit_nsec         : u32,
+}
+
+pub struct JournalDescriptorBlock {
+    header              : JournalHeader,
+    open_coded_array    : JournalBlockTag
 }

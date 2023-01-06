@@ -2,7 +2,7 @@ use bytes::{Bytes, Buf};
 
 use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 
-use super::{Ext4, SuperBlock, GroupDescriptor, Inode};
+use super::{Ext4, SuperBlock, GroupDescriptor, Inode, Block};
 
 impl Ext4 {
     pub fn open(path: &str) -> Result<Self,MRError> {
@@ -179,6 +179,10 @@ impl Ext4 {
         gdt.get_inode(id)
     }
 
+    pub fn get_block_by_id(&self, id: u32) -> Block {
+        unimplemented!()
+    }
+
     pub fn get_inode_by_fname(&self, fname: &str) -> Inode {
         unimplemented!()
     }
@@ -211,5 +215,8 @@ impl Ext4 {
         self.block_size
     }
 
+    pub fn find_unreferenced_idx(&self) {
+        unimplemented!()
+    }
 }
 
