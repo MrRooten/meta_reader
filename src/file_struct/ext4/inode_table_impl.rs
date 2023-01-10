@@ -1,9 +1,10 @@
 use bytes::{Buf, Bytes};
 
-use crate::utils::{file::MRFile, funcs::i_to_m};
+use crate::utils::{file::MRFile, funcs::i_to_m, MRError};
 
 use super::{
-    Ext4, Extent, ExtentHeader, ExtentIdx, ExtentNode, ExtentNodeType, ExtentTree, FileMode, Inode,
+    DirectoryEntry, Ext4, Extent, ExtentHeader, ExtentIdx, ExtentNode, ExtentNodeType, ExtentTree,
+    FileMode, FileType, Inode,
 };
 
 impl Extent {
@@ -14,6 +15,10 @@ impl Extent {
             ee_start_hi: (&bs[6..8]).get_u16_le(),
             ee_start_lo: (&bs[8..12]).get_u32_le(),
         }
+    }
+
+    pub fn get_start(&self) -> usize {
+        ((self.ee_start_hi as usize) << 32) + self.ee_start_lo as usize
     }
 }
 
@@ -125,13 +130,93 @@ impl Inode {
         ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28)
     }
 
+    pub fn is_deleted(&self) -> bool {
+        if self.i_block[2] == 0 && self.i_block[3] == 0 {
+            return true;
+        }
+
+        return false;
+    }
+
+    pub fn get_sub_dirs(&self) -> Result<Vec<DirectoryEntry>, MRError> {
+        if self.is_dir() == false {
+            return Err(MRError::new("Not a dir"));
+        }
+
+        let value = self.get_extents_value().unwrap();
+        let mut cur = &value;
+        let mut base_addr = 0;
+        let mut result = vec![];
+        while (&cur[base_addr..base_addr + 4]).get_u32() != 0 {
+            let entry = DirectoryEntry::parse_with_len_return(&value.slice(base_addr..), 0);
+            result.push(entry.0);
+            base_addr += entry.1
+        }
+
+        Ok(result)
+    }
+
+    pub fn iter_blocks<F>(&self, f: F) -> Result<(), MRError>
+    where
+        F: Fn(Bytes),
+    {
+        let extents = self.get_flat_extents();
+        unsafe {
+            let ext4 = &(*self.ext4.unwrap());
+            let reader = i_to_m(ext4).get_reader();
+
+            for extent in extents {
+                
+                let mut base_addr = extent.get_start() * ext4.get_block_size();
+                let end_addr = base_addr + (extent.ee_len as usize) * ext4.get_block_size();
+                let mut i = 0;
+                while i < extent.ee_len {
+                    let bs = match reader.read_n(
+                        base_addr,
+                        ext4.get_block_size(),
+                    ) {
+                        Ok(o) => o,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                    let bs = Bytes::from(bs);
+                    f(bs);
+                    base_addr += ext4.get_block_size();
+                    i += 1;
+                }
+            }
+        }
+        return Ok(());
+    }
+
+    pub fn get_sub_inode_by_name(&self, name: &str) -> Result<u32, MRError> {
+        let value = self.get_extents_value().unwrap();
+        let mut cur = &value;
+        let mut base_addr = 0;
+        while (&cur[base_addr..base_addr + 4]).get_u32() != 0 {
+            let entry = DirectoryEntry::parse_with_len_return(&value.slice(base_addr..), 0);
+            if String::from_utf8_lossy(&entry.0.name).eq(name) {
+                return Ok(entry.0.inode);
+            }
+            base_addr += entry.1
+        }
+
+        Err(MRError::new("file not found"))
+    }
+
+    pub fn get_size(&self) -> u64 {
+        self.i_size_lo as u64 + ((self.i_size_high as u64) << 32)
+    }
+
     pub fn get_flat_extents(&self) -> Vec<Extent> {
         unsafe {
             let mut extents = vec![];
             let mut stack = vec![];
             let ext4 = &(*self.ext4.unwrap());
             let reader = i_to_m(ext4).get_reader();
-            let first = ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28);
+            let first =
+                ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28);
             stack.push(first);
             while stack.len() != 0 {
                 let f = stack.pop().unwrap();
@@ -160,12 +245,15 @@ impl Inode {
                         let leaf_offset = ((idx.ei_leaf_hi as u64) << 32) + idx.ei_leaf_lo as u64;
                         let leaf_offset = (leaf_offset as usize) * ext4.get_block_size();
                         let header_bs = reader.read_n(leaf_offset, 12).unwrap();
-                        let mut child_node = ExtentNode::parse_header(&Bytes::from(header_bs), leaf_offset as u64);
+                        let mut child_node =
+                            ExtentNode::parse_header(&Bytes::from(header_bs), leaf_offset as u64);
                         let mut idx_index = 0;
-                        let idxs_size = EXTENT_IDX_SIZE*(child_node.header.eh_entries as usize);
-                        let idxs_bs = reader.read_n(leaf_offset + EXTENT_HEADER_SIZE, idxs_size).unwrap();
+                        let idxs_size = EXTENT_IDX_SIZE * (child_node.header.eh_entries as usize);
+                        let idxs_bs = reader
+                            .read_n(leaf_offset + EXTENT_HEADER_SIZE, idxs_size)
+                            .unwrap();
                         for j in 0..child_node.header.eh_entries {
-                            let _vs = (&idxs_bs[idx_index..(idx_index+EXTENT_IDX_SIZE)]).to_vec();
+                            let _vs = (&idxs_bs[idx_index..(idx_index + EXTENT_IDX_SIZE)]).to_vec();
                             let child_idx = ExtentIdx::parse(&Bytes::from(_vs));
                             child_node.idx_items.push(child_idx);
                             idx_index += EXTENT_IDX_SIZE;
@@ -185,6 +273,30 @@ impl Inode {
 
     pub fn is_socket(&self) -> bool {
         self.i_mode & 0xc000 == 0xc000
+    }
+
+    pub fn get_extents_value(&self) -> Result<Bytes, MRError> {
+        let extents = self.get_flat_extents();
+        unsafe {
+            let ext4 = &(*self.ext4.unwrap());
+            let reader = i_to_m(ext4).get_reader();
+            let mut result = Vec::new();
+
+            for extent in extents {
+                let bs = match reader.read_n(
+                    extent.get_start() * ext4.get_block_size(),
+                    (extent.ee_len as usize) * ext4.get_block_size(),
+                ) {
+                    Ok(o) => o,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+
+                result.extend_from_slice(&bs);
+            }
+            Ok(Bytes::from(result))
+        }
     }
 
     pub fn is_symbolic_link(&self) -> bool {
@@ -258,5 +370,59 @@ impl Inode {
             ext4: Some(ext4 as *const Ext4),
             base_addr: offset,
         }
+    }
+}
+
+impl TryFrom<u8> for FileType {
+    type Error = MRError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value == 0x0 {
+            return Ok(Self::Unknown);
+        } else if value == 0x1 {
+            return Ok(Self::RegularFile);
+        } else if value == 0x2 {
+            return Ok(Self::Directory);
+        } else if value == 0x3 {
+            return Ok(Self::CharacterDeviceFile);
+        } else if value == 0x4 {
+            return Ok(Self::BlockDeviceFile);
+        } else if value == 0x5 {
+            return Ok(Self::FIFO);
+        } else if value == 0x6 {
+            return Ok(Self::Socket);
+        } else if value == 0x7 {
+            return Ok(Self::SymbolicLink);
+        }
+        let msg = format!("Error for value {}", value);
+        return Err(MRError::new(&msg));
+    }
+}
+
+impl DirectoryEntry {
+    pub fn parse_with_len_return(bs: &Bytes, start_with: usize) -> (DirectoryEntry, usize) {
+        let id = (&bs[start_with..start_with + 4]).get_u32_le();
+        let rec_len = (&bs[start_with + 4..start_with + 6]).get_u16_le();
+        let name_len = (&bs[start_with + 6..start_with + 7]).get_u8();
+        let f_type = (&bs[start_with + 7..start_with + 8]).get_u8();
+        let name = (&bs[start_with + 8..start_with + (8 + name_len as usize)]).to_vec();
+        (
+            Self {
+                inode: id,
+                rec_len,
+                name_len,
+                file_type: FileType::try_from(f_type).unwrap(),
+                name,
+            },
+            rec_len as usize,
+        )
+    }
+
+    pub fn get_name(&self) -> String {
+        String::from_utf8_lossy(&self.name).to_string()
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.inode
     }
 }

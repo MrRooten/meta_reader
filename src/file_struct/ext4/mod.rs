@@ -119,7 +119,7 @@ pub enum FileType {
 pub struct DirectoryEntry {
     inode           : u32,
     rec_len         : u16,
-    name_len        : u16,
+    name_len        : u8,
     file_type       : FileType,
     name            : Vec<u8>
 }
@@ -178,7 +178,6 @@ pub enum HASH_VERSION {
     HalfMD4Unsigned,
     TeaUnsigned
 }
-
 
 pub struct JournalHeader {
     h_magic         : u32,

@@ -2,7 +2,7 @@ use bytes::{Bytes, Buf};
 
 use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 
-use super::{Ext4, SuperBlock, GroupDescriptor, Inode, Block};
+use super::{Ext4, SuperBlock, GroupDescriptor, Inode, Block, DirectoryEntry};
 
 impl Ext4 {
     pub fn open(path: &str) -> Result<Self,MRError> {
@@ -132,6 +132,7 @@ impl Ext4 {
         &self.reader
     }
 
+
     pub fn get_descs(&self) -> Result<&Vec<GroupDescriptor>,MRError> {
         if self.group_descriptors.is_some() {
             match &self.group_descriptors {
@@ -179,13 +180,49 @@ impl Ext4 {
         gdt.get_inode(id)
     }
 
+    
+
     pub fn get_block_by_id(&self, id: u32) -> Block {
         unimplemented!()
     }
 
-    pub fn get_inode_by_fname(&self, fname: &str) -> Inode {
-        unimplemented!()
+    pub fn get_inode_by_fname(&self, fname: &str) -> Result<Inode, MRError> {
+        let entries = fname.split("/").collect::<Vec<&str>>();
+        let entries = entries[1..].to_vec();
+        let mut cur_inode = self.get_inode_by_id(2);
+        if fname.eq("/") {
+            return Ok(cur_inode);
+        }
+        let mut count = 0;
+        let e_len = entries.len();
+        for entry in entries {
+            count += 1;
+            
+
+            if cur_inode.is_dir() == false  {
+                if count == e_len {
+                    break;
+                }
+                return Err(MRError::new("Not a dir"));
+            }
+
+            let inode = match cur_inode.get_sub_inode_by_name(entry) {
+                Ok(o) => o,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+
+            cur_inode = self.get_inode_by_id(inode);
+            if fname.ends_with("/") {
+                if count == e_len - 1 {
+                    break;
+                }
+            }
+        }
+        Ok(cur_inode)
     }
+    
 
     pub fn get_root_inode(&self) -> Inode {
         self.get_inode_by_id(2)
