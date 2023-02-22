@@ -22,6 +22,30 @@ impl MFTEntry {
         None
     }
 
+    pub fn get_flags(&self) -> u16 {
+        self.entry_flags
+    }
+
+    pub fn get_index(&self) -> u64 {
+        self.index
+    }
+
+    pub fn get_parent_index(&self) -> i64 {
+        if self.parent_index > 0 {
+            return self.parent_index;
+        }
+
+        let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
+        if let MFTValue::FileName(s) = &attr.value {
+            i_to_m(self).parent_index = s.parent_file_num as i64;
+        }
+        self.parent_index
+    }
+
+    pub fn contains_attr(&self, key: u32) -> bool {
+        self.map_attr_chains.contains_key(&key)
+    }
+
     pub fn filename_creation_time(&self) -> Option<DateTime<Local>> {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
@@ -224,14 +248,20 @@ impl MFTEntry {
         let len = bs.len();
         while base_addr < len - 1 {
             let _attr_len = (&bs[base_addr + 4..base_addr + 8]).get_u16_le();
-            let attr = MFTAttribute::parse(
+            let attr = match MFTAttribute::parse(
                 &bs,
                 ntfs,
                 base_addr as u64,
                 index,
                 base_addr as u64 + mft_base,
-            )
-            .unwrap();
+            ) {
+                Ok(o) => {
+                    o
+                },
+                Err(e) => {
+                    return Err(e);
+                }
+            };
             base_addr += attr.length as usize;
             if map_attr_chains.contains_key(&attr.mft_type) {
                 let chains = match map_attr_chains.get_mut(&attr.mft_type) {
@@ -265,6 +295,7 @@ impl MFTEntry {
             map_attr_chains: map_attr_chains,
             ntfs: Some(ntfs),
             index: index,
+            parent_index: -1,
         })
     }
 
@@ -386,13 +417,20 @@ impl MFTValue {
             };
             return Ok(MFTValue::FileName(name));
         } else if attr_type == 0x80 {
-            return Ok(MFTValue::Data(Value80_Data::parse(
+            let data = match Value80_Data::parse(
                 bs,
                 ntfs,
                 is_nonresident,
                 base,
                 common,
-            )));
+            ) {
+                Ok(o) => o,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+
+            return Ok(MFTValue::Data(data));
         } else if attr_type == 0x40 {
             return Ok(MFTValue::ObjectId(Value40_ObjectId::parse(bs, ntfs)));
         } else if attr_type == 0x70 {
@@ -496,7 +534,8 @@ impl Value30_FileName {
         if bs.len() < 66 {
             return Err(MRError::new("error format filename length"));
         }
-        let parent_file_num = (&bs[0..8]).get_u64_le();
+        //let parent_file_num = (&bs[0..8]).get_u64_le();
+        let parent_file_num = get_le_u64(bs.slice(0..6)).unwrap();
         let creation_date = FileTime::parse_from_u64((&bs[8..16]).get_u64());
         let last_modify_time = FileTime::parse_from_u64((&bs[16..24]).get_u64());
         let mft_change_time = FileTime::parse_from_u64((&bs[24..32]).get_u64());
@@ -529,7 +568,10 @@ impl Value30_FileName {
     }
 }
 
-pub fn get_le_u64(bs: Bytes) -> u64 {
+pub fn get_le_u64(bs: Bytes) -> Option<u64> {
+    if bs.len() > 8 {
+        return None;
+    }
     let mut result = 0;
     let mut count = 0;
     for b in bs {
@@ -537,7 +579,7 @@ pub fn get_le_u64(bs: Bytes) -> u64 {
         result += (k << count);
         count += 8;
     }
-    result
+    Some(result)
 }
 
 impl Value40_ObjectId {
@@ -583,16 +625,16 @@ impl Value80_Data {
         is_nonresident: bool,
         base: u64,
         common: &CCommon,
-    ) -> Self {
+    ) -> Result<Self, MRError> {
         if is_nonresident == false {
             let offset = common.get_data_offset() as u64;
             let filesize = common.get_data_size() as u64;
-            return Self {
+            return Ok(Self {
                 datas: vec![DataDescriptor {
                     datasize: filesize,
                     start_addr: base as u64 + offset,
                 }],
-            };
+            });
         }
 
         let mut index = 0;
@@ -605,10 +647,26 @@ impl Value80_Data {
                 break;
             }
             let start_addr_len = len / 16;
-            let filesize = get_le_u64(bs.slice(index+1..index+1 + filesize_len as usize));
+            if index + 1 + filesize_len as usize > bs.len() {
+                return Err(MRError::new("Value80_Data::new data not enough"));
+            }
+            let filesize = match get_le_u64(bs.slice(index+1..index+1 + filesize_len as usize)) {
+                Some(s) => s,
+                None => {
+                    return Err(MRError::new("too many bytes in Value80_Data::new get filesize"));
+                }
+            };
             
             let _s = (index + 1 + filesize_len as usize);
-            let mut offset = get_le_u64(bs.slice(_s.._s + start_addr_len as usize));
+            if _s + start_addr_len as usize > bs.len() {
+                return Err(MRError::new("Value80_Data::new data not enough"));
+            }
+            let mut offset = match get_le_u64(bs.slice(_s.._s + start_addr_len as usize)) {
+                Some(o) => o,
+                None => {
+                    return Err(MRError::new("too many bytes in Value80_Data::new get offset"));
+                }
+            };
             
             index += filesize_len as usize + start_addr_len as usize + 1;
 
@@ -619,21 +677,26 @@ impl Value80_Data {
             //         i += 1;
             //     }
             // }
+            if filesize.checked_mul(ntfs.get_cluster_size()).is_none() {
+                return Err(MRError::new("Value80_Data::new filesize overflow"));
+            }
             let data = DataDescriptor {
                 datasize: filesize * ntfs.get_cluster_size(),
                 start_addr: offset,
             };
             cluster_number += offset;
-            
-             let data = DataDescriptor { datasize: data.datasize, start_addr: cluster_number * ntfs.get_cluster_size() };
+            if cluster_number.checked_mul(ntfs.get_cluster_size()).is_none() {
+                return Err(MRError::new("Value80_Data::new start_addr overflow"));
+            }
+            let data = DataDescriptor { datasize: data.datasize, start_addr: cluster_number * ntfs.get_cluster_size() };
             // let _bs = ntfs.reader.read_n(data.start_addr as usize, 0x400).unwrap();
             //println!("{:?}", _bs);
             result.push(data);
         }
 
-        Self {
+        Ok(Self {
             datas : result
-        }
+        })
     }
 }
 
@@ -730,8 +793,8 @@ impl Value90_IndexRoot {
 
 impl FileReference {
     pub fn parse(bs: Bytes) -> Self {
-        let index = get_le_u64(bs.slice(0..6));
-        let sequence = get_le_u64(bs.slice(6..8));
+        let index = get_le_u64(bs.slice(0..6)).unwrap();
+        let sequence = get_le_u64(bs.slice(6..8)).unwrap();
         Self {
             mft_index: index,
             sequence_num: sequence as u16,
@@ -771,7 +834,7 @@ impl IndexValue {
             index_key_data = Some(filename);
             let value_offset = 16 + index_key_data_size as usize;
             if index_value_flags & 0x1 == 0x1 {
-                index_value_data = Some(bs.slice(value_offset..bs.len() - 9).to_vec());
+                index_value_data = Some(bs.slice(value_offset..bs.len() - 8).to_vec());
             } else {
                 index_value_data = Some(bs.slice(value_offset..).to_vec());
             }
@@ -820,8 +883,18 @@ impl ValueA0_IndexAlloction {
             let _tmp = (&bs[0..1]).get_u8();
             let offset_size = (_tmp / 16) as usize;
             let size_size = (_tmp % 16) as usize;
-            let size = get_le_u64(bs.slice(1..1 + size_size));
-            let offset = get_le_u64(bs.slice(1 + size_size..1 + size_size + offset_size));
+            let size = match get_le_u64(bs.slice(1..1 + size_size)) {
+                Some(s) => s,
+                None => {
+                    return Err(MRError::new("too many bytes in ValueA0_IndexAlloction::new get size"));
+                }
+            };
+            let offset = match get_le_u64(bs.slice(1 + size_size..1 + size_size + offset_size)) {
+                Some(s) => s,
+                None => {
+                    return Err(MRError::new("too many bytes in ValueA0_IndexAlloction::new get offset"));
+                }
+            };
             Ok(Self {
                 offset: offset,
                 size: size,

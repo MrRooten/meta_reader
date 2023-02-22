@@ -256,6 +256,7 @@ pub struct MFTAttribute {
 
 #[derive(Debug)]
 pub struct MFTEntry {
+    parent_index                : i64,
     index                       : u64,
     fix_up_value_offset         : u16,
     number_fix_up_values        : u16,

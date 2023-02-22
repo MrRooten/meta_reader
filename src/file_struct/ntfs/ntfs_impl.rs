@@ -2,9 +2,13 @@ use std::{fs, io::Write, ops::Range};
 
 use bytes::{Buf, Bytes};
 
-use crate::utils::{file::MRFile, MRError, funcs::m_to_i};
+use crate::utils::{
+    file::MRFile,
+    funcs::{i_to_m, m_to_i},
+    MRError,
+};
 
-use super::{FileItem, MFTEntry, MFTValue, Ntfs, DataDescriptor};
+use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs};
 
 impl Ntfs {
     pub fn open(img: &str) -> Result<Ntfs, MRError> {
@@ -45,14 +49,12 @@ impl Ntfs {
         let s: usize;
         if mft_entry_size <= 127 {
             s = mft_entry_size as usize;
-            
         } else {
             s = 256 - mft_entry_size as usize;
         }
 
         let mft_entry_size = num::pow(2, s);
 
-        
         Ok(Self {
             reader: mr_file,
             start_with: start_with,
@@ -74,7 +76,7 @@ impl Ntfs {
         if self.datas_of_mft.len() != 0 {
             return &self.datas_of_mft;
         }
-        
+
         let offset = self.get_mft_offset() as usize;
         let bs = self.reader.read_n(offset, self.get_mft_size()).unwrap();
         let mft = MFTEntry::parse(Bytes::from(bs), self, offset as u64, 0).unwrap();
@@ -127,12 +129,58 @@ impl Ntfs {
         self.bytes_per_sector as u64 * self.sectors_per_cluster_block as u64
     }
 
-    pub fn get_mft_offset(&self) -> u64 {
-        self.mft_block_number * self.get_cluster_size()
+    pub fn get_reader(&self) -> &MRFile {
+        &self.reader
+    }
+    pub fn iter_mft<F>(&self, mut f: F)
+    where
+        F: FnMut(u64, Result<MFTEntry, MRError>, bool, &mut Ntfs),
+    {
+        let mut index = 0;
+        let mft_size = self.get_mft_size();
+        let datas = i_to_m(self).get_datas_of_mft();
+        let mut is_deleted = false;
+        let reader = self.get_reader();
+        for data in datas {
+            let d = data.datasize as usize;
+            
+            let block = self.get_mft_size();
+            let start = data.start_addr as usize;
+            let mut i = 0;
+            while i < d {
+                let mfts_bs = match self.get_reader().read_n(start + i, block) {
+                    Ok(o) => o,
+                    Err(e) => {
+                        //println!("{}",i);
+                        break ;
+                    }
+                };
+                let mfts_bs = Bytes::from(mfts_bs);
+                let mut offset = 0;
+                while offset < block {
+                    let mft_bs = mfts_bs.slice(offset..offset + 0x400);
+                    if mft_bs[22] == 0 && mft_bs[23] == 0 {
+                        is_deleted = true;
+                    } else {
+                        is_deleted = false;
+                    }
+                    let entry = MFTEntry::parse(
+                        Bytes::from(mft_bs),
+                        i_to_m(self),
+                        (start + i + offset) as u64,
+                        index,
+                    );
+                    f(index, entry, is_deleted, i_to_m(self));
+                    index += 1;
+                    offset += self.get_mft_size();
+                }
+                i += block;
+            }
+        }
     }
 
-    pub fn is_bitlocker(&self) -> bool {
-        false
+    pub fn get_mft_offset(&self) -> u64 {
+        self.mft_block_number * self.get_cluster_size()
     }
 
     pub fn get_mft_size(&self) -> usize {
@@ -150,8 +198,8 @@ impl Ntfs {
                 continue;
             }
 
-            let offset = data.start_addr as usize + _index as usize*self.get_mft_size();
-            
+            let offset = data.start_addr as usize + _index as usize * self.get_mft_size();
+
             let mft_bs = self.reader.read_n(offset, self.get_mft_size()).unwrap();
             let entry = MFTEntry::parse(Bytes::from(mft_bs), self, offset as u64, index);
             match entry {
@@ -195,5 +243,26 @@ impl Ntfs {
 
     pub fn get_sub_nodes(&self, mft: &MFTEntry) -> Result<Vec<FileItem>, MRError> {
         mft.get_sub_files()
+    }
+
+    pub fn is_deleted_by_index(&self, index: u64) -> bool {
+        let mut _index = index;
+        let mft_size = self.get_mft_size();
+        let datas = i_to_m(self).get_datas_of_mft();
+        for data in datas {
+            let mft_cap = data.datasize / mft_size as u64;
+            if _index > mft_cap {
+                _index -= mft_cap;
+                continue;
+            }
+
+            let offset = data.start_addr as usize + _index as usize * self.get_mft_size();
+
+            let mft_bs = self.reader.read_n(offset, 40).unwrap();
+            if mft_bs[22] == 0 && mft_bs[23] == 0 {
+                return true;
+            }
+        }
+        return false;
     }
 }

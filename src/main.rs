@@ -218,15 +218,15 @@ fn main() {
 
         if function.eq("stat") {
             module.stat(_f_args).unwrap();
+        } else if function.eq("deleted_files") {
+            module.deleted_files(_f_args).unwrap();
         }
     }
     else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        let v = ntfs.get_mft_entry_by_index(446170).unwrap();
-        let files = v.get_sub_files().unwrap();
-        for file in files {
-            println!("{} {}", file.get_index(), file.get_name());
-        }
+        let v = ntfs.get_mft_entry_by_index(473653).unwrap();
+        println!("{:?}", v.filename());
+        
     }
     return;
 }
