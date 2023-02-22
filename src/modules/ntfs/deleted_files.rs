@@ -33,16 +33,8 @@ impl NtfsModule {
             
             
                 //if parent_index as i64 == res.get_parent_index() {
-                  
-            let mft = ntfs.get_mft_entry_by_index(index);
-            if let Some(s) = mft {
-                if s.filename().is_some() && res.filename().is_some() {
-                    let name = s.filename().unwrap();
-                    let name2 = res.filename().unwrap();
-                    if name.eq(&name2) == false {
-                        println!("{} {} {}", index, name, name2);
-                    }
-                }
+            if (res.get_flags() == 0 || res.get_flags() == 2) && res.get_parent_index() == parent_index as i64 {
+                println!("{} {:?} {}", res.get_index(), res.filename(), res.get_flags());
             }
 
             if index % 9333 == 0 {

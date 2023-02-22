@@ -223,10 +223,9 @@ fn main() {
         }
     }
     else if args[1].eq("test") {
-        let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        let v = ntfs.get_mft_entry_by_index(473653).unwrap();
-        println!("{:?}", v.filename());
-        
+        let mut ntfs = Ntfs::open("\\\\.\\D:").unwrap();
+        let v = ntfs.get_mft_entry_by_index(23119).unwrap();
+        println!("{:?}", v);
     }
     return;
 }

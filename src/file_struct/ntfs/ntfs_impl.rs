@@ -159,7 +159,7 @@ impl Ntfs {
                 let mut offset = 0;
                 while offset < block {
                     let mft_bs = mfts_bs.slice(offset..offset + 0x400);
-                    if mft_bs[22] == 0 && mft_bs[23] == 0 {
+                    if mft_bs[22] == 0 {
                         is_deleted = true;
                     } else {
                         is_deleted = false;
