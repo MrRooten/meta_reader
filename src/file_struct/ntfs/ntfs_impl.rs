@@ -132,6 +132,44 @@ impl Ntfs {
     pub fn get_reader(&self) -> &MRFile {
         &self.reader
     }
+
+    pub fn get_sector_num(&self) -> u64 {
+        self.total_sectors
+    }
+
+    pub fn get_sector_bytes_num(&self) -> u64 {
+        self.bytes_per_sector as u64
+    }
+
+    fn align(n: usize, alignment: usize) -> usize {
+        (alignment - n % alignment) + n
+    }
+    pub fn iter_diy_block<F>(&self, size: usize, redundancy: usize, cores: u32, mut f: F)
+    where 
+        F: FnMut(u64, u64, Vec<u8>) -> bool
+    {
+        let redundancy = Ntfs::align(redundancy, 512);
+        let c_sectors = self.total_sectors;
+        let c_bytes = c_sectors * self.bytes_per_sector as u64;
+        let mut offset = 0x1000;
+        let mut _i = 0;
+        while offset < c_bytes {
+            let bs = match self.reader.read_n(offset as usize, size + redundancy) {
+                Ok(o) => o,
+                Err(e) => {
+                    break;
+                }
+            };
+            let diy_block_id = offset / size as u64;
+            let is_break = f(diy_block_id, offset ,bs);
+            if is_break {
+                break;
+            }
+            offset += size as u64;
+            _i += 1;
+        }
+    }
+
     pub fn iter_mft<F>(&self, mut f: F)
     where
         F: FnMut(u64, Result<MFTEntry, MRError>, bool, &mut Ntfs),

@@ -4,3 +4,4 @@ pub mod elf;
 pub mod pe;
 pub mod ext4;
 pub mod ntfs;
+pub mod xfs;

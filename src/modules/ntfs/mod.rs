@@ -1,8 +1,10 @@
+#![allow(unused)]
 use std::collections::HashMap;
 
 use crate::{file_struct::ntfs::Ntfs, utils::MRError};
 pub mod stat;
 pub mod deleted_files;
+pub mod search_disk;
 pub struct NtfsModule {
     ntfs    : Ntfs,
     file    : String,

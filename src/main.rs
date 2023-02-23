@@ -220,6 +220,8 @@ fn main() {
             module.stat(_f_args).unwrap();
         } else if function.eq("deleted_files") {
             module.deleted_files(_f_args).unwrap();
+        } else if function.eq("search_disk") {
+            module.search_disk(_f_args).unwrap();
         }
     }
     else if args[1].eq("test") {

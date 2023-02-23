@@ -14,7 +14,7 @@ pub struct Ntfs {
     boot_entry_point            : Vec<u8>,
     sectors_per_cluster_block   : u8,
     bytes_per_sector            : u16,
-    total_sectors              : u64,
+    total_sectors               : u64,
     mft_block_number            : u64,
     mft_mirror_block_number     : u64,
     mft_entry_size              : usize,
