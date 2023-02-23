@@ -84,7 +84,7 @@ impl NtfsModule {
                 return false;
             },
         );
-        pb.finish_and_clear();
+        pb.finish();
 
         Ok(())
     }
