@@ -77,6 +77,41 @@ impl Ext4 {
 
     }
 
+    fn align(n: usize, alignment: usize) -> usize {
+        (alignment - n % alignment) + n
+    }
+
+    pub fn get_blocks_count(&self) -> u64 {
+        let block = self.get_super_block().unwrap();
+        return block.s_block_count as u64;
+    }
+
+    pub fn iter_diy_block<F>(&self, size: usize, redundancy: usize, cores: u32, mut f: F)
+    where 
+        F: FnMut(u64, u64, Vec<u8>) -> bool
+    {
+        let redundancy = Ext4::align(redundancy, 512);
+        let c_sectors = self.get_blocks_count() as usize;
+        let c_bytes = c_sectors * self.get_block_size();
+        let mut offset = 0x1000;
+        let mut _i = 0;
+        while offset < c_bytes {
+            let bs = match self.reader.read_n(offset as usize, size + redundancy) {
+                Ok(o) => o,
+                Err(e) => {
+                    break;
+                }
+            };
+            let diy_block_id = (offset / size) as u64;
+            let is_break = f(diy_block_id, offset as u64 ,bs);
+            if is_break {
+                break;
+            }
+            offset += size;
+            _i += 1;
+        }
+    }
+
     fn set_descs(&mut self) -> Result<&Vec<GroupDescriptor>,MRError> {
         let mut result: Vec<GroupDescriptor> = Vec::default();
         let super_block = self.get_super_block();

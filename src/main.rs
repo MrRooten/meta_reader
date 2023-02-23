@@ -195,6 +195,8 @@ fn main() {
                 })
                 .unwrap();
             println!();
+        } else if function.eq("search_disk") {
+            module.search_disk(_f_args).unwrap();
         }
     } else if args[1].eq("ntfs") {
         if args.len() <= 3 {

@@ -11,6 +11,7 @@ pub mod read_file;
 pub mod list_recoverable_inodes;
 pub mod search_deleted_files;
 pub mod search_recoverable_files;
+pub mod search_disk;
 pub struct Ext4Module {
     ext4    : Ext4,
     file    : String,
