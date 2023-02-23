@@ -77,7 +77,8 @@ impl NtfsModule {
                 let size = vs_contains_sub(&bs, &target);
                 if size.is_some() {
                     let sub = String::from_utf8_lossy(&bs[size.unwrap()..size.unwrap()+target.len()]).to_string();
-                    println!("{} {:?}", index, sub);
+                    let s = format!("\r{} {:?}", index, sub);
+                    pb.println(s);
                 }
                 pb.set_position(progress);
                 return false;
