@@ -99,7 +99,7 @@ impl NtfsModule {
         //let target = Bytes::from(target);
         let totals = self.ntfs.get_sector_bytes_num() * self.ntfs.get_sector_num();
         let pb = ProgressBar::new(totals);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec})")
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {eta} {bytes}/{total_bytes} ({bytes_per_sec})")
                 .unwrap()
                 .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
                 .progress_chars("#>-"));
