@@ -31,7 +31,7 @@ impl NtfsModule {
             Some(s) => s,
             None => &default_encode,
         };
-
+        
         let target: Vec<u8>;
         if encode.eq("hex") {
             target = match hex_to_vec_u8(&to_search) {
@@ -49,6 +49,8 @@ impl NtfsModule {
             };
         } else if encode.eq("file") {
             target = fs::read(to_search).unwrap();
+        } else if encode.eq("string") {
+            target = to_search.as_bytes().to_vec();
         }
         else {
             return Err(MRError::new("Must post the to_search={}"));
