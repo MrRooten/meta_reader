@@ -93,7 +93,7 @@ impl NtfsModule {
         } else {
             return Err(MRError::new("Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16"));
         }
-        let read_size = self.ntfs.get_cluster_size() as usize*0x100;
+        let read_size = self.ntfs.get_cluster_size() as usize*0x1000;
         let all_zero_vec = Vec::<u8>::with_capacity(read_size + target.len());
         let all_zero_hash = md5::compute(&all_zero_vec);
         //let target = Bytes::from(target);
@@ -103,13 +103,9 @@ impl NtfsModule {
                 .unwrap()
                 .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
                 .progress_chars("#>-"));
-
+        let mut count = 0;
         self.ntfs
-            .iter_diy_block(read_size, target.len(), 3, |index, progress, bs| {
-                // let hash = md5::compute(&bs);
-                // if hash.eq(&all_zero_hash) {
-                //     return false;
-                // }
+            .iter_diy_block(read_size, target.len(), 3, move |index, progress, bs| {
                 if match_type.eq(&MatchType::Equal) {
                     pb.set_position(progress);
                     let size = vs_contains_sub(&bs, &target);
@@ -166,7 +162,7 @@ impl NtfsModule {
                 }
                 return false;
             });
-        pb.finish();
+        //pb.finish();
 
         Ok(())
     }
