@@ -201,7 +201,9 @@ fn main() {
     } else if args[1].eq("ntfs") {
         if args.len() <= 3 {
             println!("support function:");
-            println!("\t${{nftfs_file}} stat path=${{target_dir}}");
+            println!("\t${{ntfs_file}} stat path=${{target_dir}}");
+            println!("\t${{ntfs_file}} deleted_files path=${{target_dir}}");
+            println!("\t${{ntfs_file}} search_disk encode=${{default:hex,base64,file,string,regex,regex_bytes,regex_utf16}},to_search=${{value}}");
             return;
         }
         let img = &args[2];
@@ -223,7 +225,9 @@ fn main() {
         } else if function.eq("deleted_files") {
             module.deleted_files(_f_args).unwrap();
         } else if function.eq("search_disk") {
-            module.search_disk(_f_args).unwrap();
+            if let Err(e) = module.search_disk(_f_args) {
+                println!("[Error]:{}", e);
+            }
         }
     }
     else if args[1].eq("test") {

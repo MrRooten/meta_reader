@@ -16,3 +16,4 @@ base64 = "0.13.1"
 indicatif = "0.17.1"
 md5 = "0.7.0"
 regex = "1.7.1"
+memchr = { version = "2", default-features = false }
