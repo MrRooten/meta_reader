@@ -66,6 +66,19 @@ impl MFTEntry {
         None
     }
 
+    pub fn get_data_value(&self) -> Option<&Value80_Data> {
+        let attr = match self.map_attr_chains.get(&0x80) {
+            Some(o) => o.first().unwrap(),
+            None => {
+                return None;
+            }
+        };
+        if let MFTValue::Data(s) = &attr.value {
+            return Some(s);
+        }
+        None
+    }
+
     pub fn filename_access_time(&self) -> Option<DateTime<Local>> {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
@@ -278,6 +291,9 @@ impl MFTEntry {
                 map_attr_chains.insert(mft_type, chains);
             }
 
+            if base_addr >= len - 1 {
+                break;
+            }
             if bs[base_addr] == 0xff && bs[base_addr + 1] == 0xff {
                 break;
             }

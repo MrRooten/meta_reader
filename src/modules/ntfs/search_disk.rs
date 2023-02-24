@@ -17,7 +17,6 @@ pub fn hex_to_vec_u8(s: &str) -> Result<Vec<u8>, ParseIntError> {
 pub fn vs_contains_sub(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
     memmem::find(haystack, needle)
 }
-    
 
 #[derive(PartialEq)]
 enum MatchType {
@@ -39,7 +38,7 @@ fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
 
 fn sec_to_s(secs: u64) -> String {
     if secs >= 60 {
-        format!("{}m{}s", secs/60, secs%60)
+        format!("{}m{}s", secs / 60, secs % 60)
     } else {
         format!("{}s", secs)
     }
@@ -57,8 +56,38 @@ impl NtfsModule {
             Some(s) => s,
             None => {
                 return Err(MRError::new("search_disk encode=${default:hex,base64,file,string,regex,regex_bytes,regex_utf16},to_search=${value}"));
-            },
+            }
         };
+        let default_to_file = "false".to_string();
+        let to_file = match args.get("to_file") {
+            Some(s) => s,
+            None => &default_to_file,
+        };
+        let bool_to_file;
+        if to_file.eq("true") {
+            bool_to_file = true;
+            let mft_mft = self.ntfs.get_datas_of_mft();
+            let mut total = 0;
+            for mft in mft_mft {
+                total += mft.get_datasize();
+            }
+            
+            let pb = ProgressBar::new(total);
+            let mut save_offset = 0;
+            println!("Loading mft....");
+            pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}), {eta}")
+                .unwrap()
+                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
+                .progress_chars("#>-"));
+            self.ntfs.cache_mfts(|offset| {
+                pb.set_position(offset);
+                save_offset = offset;
+            });
+            pb.finish_and_clear();
+            println!("Loaded {} mft", save_offset / self.ntfs.get_mft_size() as u64);
+        } else {
+            bool_to_file = false;
+        }
 
         let target: Vec<u8>;
         let mut regex_bytes_pattern = None::<regex::bytes::Regex>;
@@ -98,9 +127,11 @@ impl NtfsModule {
             target = Vec::new();
             match_type = MatchType::RegexUtf16;
         } else {
-            return Err(MRError::new("Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16"));
+            return Err(MRError::new(
+                "Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16",
+            ));
         }
-        let read_size = self.ntfs.get_cluster_size() as usize*0x1000;
+        let read_size = self.ntfs.get_cluster_size() as usize * 0x1000;
         let all_zero_vec = Vec::<u8>::with_capacity(read_size + target.len());
         let all_zero_hash = md5::compute(&all_zero_vec);
         //let target = Bytes::from(target);
@@ -123,7 +154,6 @@ impl NtfsModule {
                         .to_string();
                         let s = format!("{} {:?}", progress + size.unwrap() as u64, sub);
                         pb.println(s);
-                        
                     }
                 } else if match_type.eq(&MatchType::Regex) {
                     pb.set_position(progress);
@@ -161,7 +191,9 @@ impl NtfsModule {
                                 "utf-16: {} {:?} {:?}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                String::from_utf8_lossy(&bs[mt.start()-a..mt.start()-a+30].to_vec())
+                                String::from_utf8_lossy(
+                                    &bs[mt.start() - a..mt.start() - a + 30].to_vec()
+                                )
                             );
                             pb.println(s);
                         }

@@ -1,14 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use bytes::Bytes;
 
 use crate::utils::file::MRFile;
-
+use std::ops::Range;
 pub mod ntfs_impl;
 pub mod mft_impl;
 pub mod journal_impl;
 
-#[derive(Default)]
+
 pub struct Ntfs {
     start_with                  : Vec<u8>,
     boot_entry_point            : Vec<u8>,
@@ -22,7 +22,8 @@ pub struct Ntfs {
     is_bitlocker                : bool,
     version                     : Option<(u8,u8)>,
     reader                      : MRFile,
-    datas_of_mft                : Vec<DataDescriptor>
+    datas_of_mft                : Vec<DataDescriptor>,
+    cache_mfts                  : Option<Vec<(Range<usize>, Rc<MFTEntry>)>>
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -128,6 +129,16 @@ pub struct Value70_VolumeInfomation {
 pub struct DataDescriptor {
     datasize    : u64,
     start_addr  : u64,
+}
+
+impl DataDescriptor {
+    pub fn get_datasize(&self) -> u64 {
+        self.datasize
+    }
+
+    pub fn get_start_addr(&self) -> u64 {
+        self.start_addr
+    }
 }
 
 #[derive(Debug)]

@@ -10,7 +10,7 @@ use meta_reader::{
         ntfs::Ntfs,
     },
     modules::{ext4::Ext4Module, ntfs::NtfsModule},
-    utils::file::filesize_to_human_string,
+    utils::{file::filesize_to_human_string, funcs::i_to_m},
 };
 
 static mut PASSWD: Option<HashMap<u16, String>> = None;
@@ -231,9 +231,15 @@ fn main() {
         }
     }
     else if args[1].eq("test") {
-        let mut ntfs = Ntfs::open("\\\\.\\D:").unwrap();
-        let v = ntfs.get_mft_entry_by_index(23119).unwrap();
-        println!("{:?}", v);
+        let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
+        let reader = ntfs.get_reader();
+        let mfts = i_to_m(&ntfs).get_datas_of_mft();
+        for mft in mfts {
+            let v = reader.read_n(mft.get_start_addr() as usize, 0x40);
+            println!("{:?}", v);
+        }
+        
+        
     }
     return;
 }
