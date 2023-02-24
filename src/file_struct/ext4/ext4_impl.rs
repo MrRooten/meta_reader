@@ -15,11 +15,23 @@ impl Ext4 {
                 return Err(MRError::from(Box::new(e)));
             }
         };
-
-        Ok(Ext4 {
+        let mut ext4 = Ext4 {
             reader : mr_file,
             ..Default::default()
-        })
+        };
+        match ext4.set_super_block() {
+            Ok(o) => o,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        match ext4.set_descs() {
+            Ok(o) => o,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        Ok(ext4)
     }
 
     fn set_super_block(&mut self) -> Result<&SuperBlock,MRError> {
@@ -39,6 +51,13 @@ impl Ext4 {
         } else {
             super_block.is_64bit = false;
         }
+
+        let block_size = num::pow(2,(10+super_block.s_log_block_size) as usize);
+        
+        if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
+            return Err(MRError::new("Parse error: block_size is not right"));
+        }
+        self.block_size = block_size;
         //if 64bit feature is set
         if super_block.is_64bit {
             super_block.s_log_groups_per_flex = (&sbytes[0x174..0x175]).get_u8();
@@ -121,22 +140,18 @@ impl Ext4 {
                 return Err(MRError::from(Box::new(e)));
             }
         };
-        let block_size = num::pow(2,(10+super_block.s_log_block_size) as usize);
-        let descs_size = super_block.s_desc_size as usize;
-        if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
-            return Err(MRError::new("Parse error: block_size is not right"));
-        }
         
+        let descs_size = super_block.s_desc_size as usize;
         let len = super_block.s_log_groups_per_flex as usize * descs_size;
         if len % descs_size != 0 {
             return Err(MRError::new("Parse error: Group Descriptor size is not right"));
         }
-        
+        let block_size = self.get_block_size();
         let sbytes = self.reader.read_n(block_size, len).expect("error");
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
         let mut count = 0;
-        self.block_size = block_size;
+        
         loop {
             let gdt = self.reader.read_n(block_size + i, descs_size).expect("error");
             let gdt = Bytes::from(gdt);

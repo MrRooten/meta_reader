@@ -26,6 +26,7 @@ impl Ext4Module {
                 return Err(e);
             }
         };
+
         Ok(Self {
             ext4: ext4,
             file: file.to_string(),
@@ -33,3 +34,4 @@ impl Ext4Module {
         })
     }
 }
+
