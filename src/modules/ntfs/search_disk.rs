@@ -37,6 +37,13 @@ fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
     title
 }
 
+fn sec_to_s(secs: u64) -> String {
+    if secs >= 60 {
+        format!("{}m{}s", secs/60, secs%60)
+    } else {
+        format!("{}s", secs)
+    }
+}
 impl NtfsModule {
     pub fn search_disk(&mut self, args: HashMap<String, String>) -> Result<(), MRError> {
         let match_type: MatchType;
@@ -99,9 +106,9 @@ impl NtfsModule {
         //let target = Bytes::from(target);
         let totals = self.ntfs.get_sector_bytes_num() * self.ntfs.get_sector_num();
         let pb = ProgressBar::new(totals);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {eta} {bytes}/{total_bytes} ({bytes_per_sec})")
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}), {eta}")
                 .unwrap()
-                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
                 .progress_chars("#>-"));
         let mut count = 0;
         self.ntfs
