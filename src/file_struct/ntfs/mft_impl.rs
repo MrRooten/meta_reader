@@ -46,6 +46,46 @@ impl MFTEntry {
         self.map_attr_chains.contains_key(&key)
     }
 
+    pub fn fullpath(&self) -> Option<String> {
+        let mut index = 0;
+        if self.index <= 13 {
+            return Some(self.filename().unwrap());
+        }
+        let mut mft: Option<MFTEntry> = None;
+        let mut names = vec![];
+        names.push(self.filename().unwrap());
+        let ntfs = i_to_m(unsafe { &*self.ntfs.unwrap() });
+        let parent_index = self.get_parent_index();
+        if parent_index < 5 {
+            names.reverse();
+            return Some(names.join("\\"));
+        }
+        index = parent_index;
+        
+        while index > 13 {
+            let mft = ntfs.get_mft_entry_by_index(index as u64);
+            let mft = match mft {
+                Some(s) => s,
+                None => {
+                    names.reverse();
+                    return Some(format!("{{No parent}}:{}",names.join("\\")));
+                }
+            };
+            let filename = match mft.filename() {
+                Some(s) => s,
+                None => {
+                    names.reverse();
+                    return Some(format!("{{No current}}:{}",names.join("\\")));
+                }
+            };
+
+            names.push(filename);
+            index = mft.get_parent_index();
+        }
+        names.reverse();
+        return Some(names.join("\\"));
+    }
+
     pub fn filename_creation_time(&self) -> Option<DateTime<Local>> {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
@@ -268,9 +308,7 @@ impl MFTEntry {
                 index,
                 base_addr as u64 + mft_base,
             ) {
-                Ok(o) => {
-                    o
-                },
+                Ok(o) => o,
                 Err(e) => {
                     return Err(e);
                 }
@@ -433,13 +471,7 @@ impl MFTValue {
             };
             return Ok(MFTValue::FileName(name));
         } else if attr_type == 0x80 {
-            let data = match Value80_Data::parse(
-                bs,
-                ntfs,
-                is_nonresident,
-                base,
-                common,
-            ) {
+            let data = match Value80_Data::parse(bs, ntfs, is_nonresident, base, common) {
                 Ok(o) => o,
                 Err(e) => {
                     return Err(e);
@@ -657,7 +689,7 @@ impl Value80_Data {
         let mut result = vec![];
         let mut cluster_number = 0;
         while index < bs.len() {
-            let len = (&bs[index..1+index]).get_u8();
+            let len = (&bs[index..1 + index]).get_u8();
             let filesize_len = len % 16;
             if filesize_len == 0 {
                 break;
@@ -666,13 +698,16 @@ impl Value80_Data {
             if index + 1 + filesize_len as usize > bs.len() {
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
-            let filesize = match get_le_u64(bs.slice(index+1..index+1 + filesize_len as usize)) {
+            let filesize = match get_le_u64(bs.slice(index + 1..index + 1 + filesize_len as usize))
+            {
                 Some(s) => s,
                 None => {
-                    return Err(MRError::new("too many bytes in Value80_Data::new get filesize"));
+                    return Err(MRError::new(
+                        "too many bytes in Value80_Data::new get filesize",
+                    ));
                 }
             };
-            
+
             let _s = (index + 1 + filesize_len as usize);
             if _s + start_addr_len as usize > bs.len() {
                 return Err(MRError::new("Value80_Data::new data not enough"));
@@ -680,10 +715,12 @@ impl Value80_Data {
             let mut offset = match get_le_u64(bs.slice(_s.._s + start_addr_len as usize)) {
                 Some(o) => o,
                 None => {
-                    return Err(MRError::new("too many bytes in Value80_Data::new get offset"));
+                    return Err(MRError::new(
+                        "too many bytes in Value80_Data::new get offset",
+                    ));
                 }
             };
-            
+
             index += filesize_len as usize + start_addr_len as usize + 1;
 
             // if (offset & (1 << (start_addr_len*8 - 1))) != 0 {
@@ -701,18 +738,22 @@ impl Value80_Data {
                 start_addr: offset,
             };
             cluster_number += offset;
-            if cluster_number.checked_mul(ntfs.get_cluster_size()).is_none() {
+            if cluster_number
+                .checked_mul(ntfs.get_cluster_size())
+                .is_none()
+            {
                 return Err(MRError::new("Value80_Data::new start_addr overflow"));
             }
-            let data = DataDescriptor { datasize: data.datasize, start_addr: cluster_number * ntfs.get_cluster_size() };
+            let data = DataDescriptor {
+                datasize: data.datasize,
+                start_addr: cluster_number * ntfs.get_cluster_size(),
+            };
             // let _bs = ntfs.reader.read_n(data.start_addr as usize, 0x400).unwrap();
             //println!("{:?}", _bs);
             result.push(data);
         }
 
-        Ok(Self {
-            datas : result
-        })
+        Ok(Self { datas: result })
     }
 }
 
@@ -902,13 +943,17 @@ impl ValueA0_IndexAlloction {
             let size = match get_le_u64(bs.slice(1..1 + size_size)) {
                 Some(s) => s,
                 None => {
-                    return Err(MRError::new("too many bytes in ValueA0_IndexAlloction::new get size"));
+                    return Err(MRError::new(
+                        "too many bytes in ValueA0_IndexAlloction::new get size",
+                    ));
                 }
             };
             let offset = match get_le_u64(bs.slice(1 + size_size..1 + size_size + offset_size)) {
                 Some(s) => s,
                 None => {
-                    return Err(MRError::new("too many bytes in ValueA0_IndexAlloction::new get offset"));
+                    return Err(MRError::new(
+                        "too many bytes in ValueA0_IndexAlloction::new get offset",
+                    ));
                 }
             };
             Ok(Self {

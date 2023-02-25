@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Write, fs, num::ParseIntError, str::FromStr
 use bytes::Bytes;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
-use crate::utils::MRError;
+use crate::{utils::{MRError, funcs::i_to_m}, file_struct::ntfs::Ntfs};
 
 use super::NtfsModule;
 use memchr::memmem;
@@ -17,6 +17,21 @@ pub fn hex_to_vec_u8(s: &str) -> Result<Vec<u8>, ParseIntError> {
 pub fn vs_contains_sub(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
     memmem::find(haystack, needle)
 }
+
+fn ref_file(ntfs: &mut Ntfs, offset: u64) -> String {
+    let mft = ntfs.search_addr_belong(offset);
+    if let Some(mft) = mft {
+        let filename = match mft.fullpath() {
+            Some(s) => s,
+            None => {
+                return format!("lcn:{}", offset / ntfs.get_cluster_size());
+            }
+        };
+        return format!("\\{}", filename);
+    }
+    format!("lcn:{}", offset / ntfs.get_cluster_size())
+}
+
 
 #[derive(PartialEq)]
 enum MatchType {
@@ -59,7 +74,7 @@ impl NtfsModule {
             }
         };
         let default_to_file = "false".to_string();
-        let to_file = match args.get("to_file") {
+        let to_file = match args.get("ref_file") {
             Some(s) => s,
             None => &default_to_file,
         };
@@ -83,7 +98,7 @@ impl NtfsModule {
                 pb.set_position(offset);
                 save_offset = offset;
             });
-            pb.finish_and_clear();
+            pb.finish();
             println!("Loaded {} mft", save_offset / self.ntfs.get_mft_size() as u64);
         } else {
             bool_to_file = false;
@@ -141,67 +156,69 @@ impl NtfsModule {
                 .unwrap()
                 .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
                 .progress_chars("#>-"));
+        let pb2 = &pb;
         let mut count = 0;
+        let ntfs = &self.ntfs;
         self.ntfs
             .iter_diy_block(read_size, target.len(), 3, move |index, progress, bs| {
                 if match_type.eq(&MatchType::Equal) {
-                    pb.set_position(progress);
+                    pb2.set_position(progress);
                     let size = vs_contains_sub(&bs, &target);
                     if size.is_some() {
                         let sub = String::from_utf8_lossy(
                             &bs[size.unwrap()..size.unwrap() + target.len()],
                         )
                         .to_string();
-                        let s = format!("{} {:?}", progress + size.unwrap() as u64, sub);
-                        pb.println(s);
+                        let s = format!("{} {:?} -> ref_file: {}", progress + size.unwrap() as u64, sub, 
+                            ref_file(i_to_m(ntfs), progress + size.unwrap() as u64));
+                        pb2.println(s);
                     }
                 } else if match_type.eq(&MatchType::Regex) {
-                    pb.set_position(progress);
+                    pb2.set_position(progress);
                     if let Some(rp) = &regex_pattern {
                         let s2 = String::from_utf8_lossy(&bs);
 
                         for mt in rp.find_iter(&s2) {
                             let s = format!(
-                                "utf-8: {} {:?}",
+                                "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
-                                mt.as_str()
+                                mt.as_str(),
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
                             );
-                            pb.println(s);
+                            pb2.println(s);
                         }
                     }
 
                     if let Some(rbp) = &regex_bytes_pattern {
                         for mt in rbp.find_iter(&bs) {
                             let s = format!(
-                                "bytes: {} {:?} {}",
+                                "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_bytes(),
-                                String::from_utf8_lossy(mt.as_bytes())
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
                             );
-                            pb.println(s);
+                            pb2.println(s);
                         }
                     }
                 } else if match_type.eq(&MatchType::RegexUtf16) {
-                    pb.set_position(progress);
+                    pb2.set_position(progress);
                     let s1 = vec_u8_to_utf16string(&bs);
                     if let Some(rp) = &regex_pattern {
                         for mt in rp.find_iter(&s1) {
                             let a = mt.start() % 0x400;
                             let s = format!(
-                                "utf-16: {} {:?} {:?}",
+                                "utf-16: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                String::from_utf8_lossy(
-                                    &bs[mt.start() - a..mt.start() - a + 30].to_vec()
-                                )
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
                             );
-                            pb.println(s);
+                            pb2.println(s);
                         }
                     }
                 }
                 return false;
             });
-        //pb.finish();
+        pb.finish();
 
         Ok(())
     }

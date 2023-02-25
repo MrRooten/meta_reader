@@ -38,7 +38,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["test","\\\\.\\C:","search_disk","encode=hex,to_search=24ff4dff46ff5400,to_file=true"],
+            "args": ["ntfs","\\\\.\\H:","search_disk","encode=string,to_search=flag,ref_file=true"],
             "cwd": "${workspaceFolder}"
         },
         {

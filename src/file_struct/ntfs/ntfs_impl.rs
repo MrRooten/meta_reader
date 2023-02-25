@@ -133,20 +133,24 @@ impl Ntfs {
         let mut end = mfts.len();
         let mut middle = (start + end) / 2;
         let mut mft = &mfts[middle];
-        while addr > mft.0.start && addr < mft.0.end {
+        while start <= end {
             if addr > mft.0.end {
-                start = middle + 1;
+                start = middle + 1 ;
                 middle = (start + end) / 2;
                 mft = &mfts[middle];
             } else if addr < mft.0.start {
                 end = middle - 1;
                 middle = (start + end) / 2;
                 mft = &mfts[middle];
-            } else if start >= end {
+            } else if addr >= mft.0.start && addr <= mft.0.end {
+                return Some(mft.1.clone());
+            } else if start == end && (addr > mft.0.start && addr < mft.0.end) {
+                return Some(mft.1.clone());;
+            } else {
                 return None;
             }
         }
-        Some(mft.1.clone())
+        None
     }
 
     pub fn get_mft_by_path(&mut self, path: &str) -> Result<MFTEntry, MRError> {
