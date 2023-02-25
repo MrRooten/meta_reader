@@ -15,7 +15,18 @@ use super::{
 
 impl MFTEntry {
     pub fn filename(&self) -> Option<String> {
-        let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
+        let attr = match self.map_attr_chains.get(&0x30) {
+            Some(a) => a,
+            None => {
+                return None;
+            }
+        };
+        let attr = match attr.first() {
+            Some(s) => s,
+            None => {
+                return None;
+            }
+        };
         if let MFTValue::FileName(s) = &attr.value {
             return Some(s.name.to_string());
         }
@@ -53,7 +64,14 @@ impl MFTEntry {
         }
         let mut mft: Option<MFTEntry> = None;
         let mut names = vec![];
-        names.push(self.filename().unwrap());
+        let filename = match self.filename() {
+            Some(s) => s,
+            None => {
+                names.reverse();
+                return Some(format!("{{No current}}:{}",names.join("\\")));
+            }
+        };
+        names.push(filename);
         let ntfs = i_to_m(unsafe { &*self.ntfs.unwrap() });
         let parent_index = self.get_parent_index();
         if parent_index < 5 {

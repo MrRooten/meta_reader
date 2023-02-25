@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Write, fs, num::ParseIntError, str::FromStr};
 
 use bytes::Bytes;
+use colored::{ColoredString, Colorize};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{utils::{MRError, funcs::i_to_m}, file_struct::ntfs::Ntfs};
@@ -18,18 +19,18 @@ pub fn vs_contains_sub(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
     memmem::find(haystack, needle)
 }
 
-fn ref_file(ntfs: &mut Ntfs, offset: u64) -> String {
+fn ref_file(ntfs: &mut Ntfs, offset: u64, drive: &str) -> ColoredString {
     let mft = ntfs.search_addr_belong(offset);
     if let Some(mft) = mft {
         let filename = match mft.fullpath() {
             Some(s) => s,
             None => {
-                return format!("lcn:{}", offset / ntfs.get_cluster_size());
+                return format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red();
             }
         };
-        return format!("\\{}", filename);
+        return format!("{}\\{}",drive, filename).bright_blue();
     }
-    format!("lcn:{}", offset / ntfs.get_cluster_size())
+    format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red()
 }
 
 
@@ -159,6 +160,7 @@ impl NtfsModule {
         let pb2 = &pb;
         let mut count = 0;
         let ntfs = &self.ntfs;
+        let drive = self.file.as_str();
         self.ntfs
             .iter_diy_block(read_size, target.len(), 3, move |index, progress, bs| {
                 if match_type.eq(&MatchType::Equal) {
@@ -170,7 +172,7 @@ impl NtfsModule {
                         )
                         .to_string();
                         let s = format!("{} {:?} -> ref_file: {}", progress + size.unwrap() as u64, sub, 
-                            ref_file(i_to_m(ntfs), progress + size.unwrap() as u64));
+                            ref_file(i_to_m(ntfs), progress + size.unwrap() as u64, drive));
                         pb2.println(s);
                     }
                 } else if match_type.eq(&MatchType::Regex) {
@@ -183,7 +185,7 @@ impl NtfsModule {
                                 "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
                             );
                             pb2.println(s);
                         }
@@ -195,7 +197,7 @@ impl NtfsModule {
                                 "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_bytes(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
                             );
                             pb2.println(s);
                         }
@@ -210,7 +212,7 @@ impl NtfsModule {
                                 "utf-16: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64)
+                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
                             );
                             pb2.println(s);
                         }
