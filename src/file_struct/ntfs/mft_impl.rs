@@ -237,58 +237,61 @@ impl MFTEntry {
 
         for _t in attrs {
 
-            // if let MFTValue::Data(data) = &_t.value {
-            //     if last_addr > data.datasize {
-            //         last_addr -= data.datasize;
-            //         continue;
-            //     }
-            //     let buffer_data: Vec<u8>;
-            //     if _t.common.is_compress() {
-            //         let compress_data = ntfs
-            //             .reader
-            //             .read_n(
-            //                 data.start_addr as usize,
-            //                 data.start_addr as usize + data.datasize as usize,
-            //             )
-            //             .unwrap();
-            //         buffer_data = lzxpress::lznt1::decompress(&compress_data).unwrap();
-            //     } else {
-            //         buffer_data = ntfs
-            //             .reader
-            //             .read_n(data.start_addr as usize, data.datasize as usize)
-            //             .unwrap();
-            //     }
-            //     if last_addr < buffer_data.len() as u64
-            //         && last_n > buffer_data.len() as u64 - last_addr
-            //     {
-            //         // let bs = ntfs
-            //         //     .reader
-            //         //     .read_n(
-            //         //         (data.start_addr + last_addr) as usize,
-            //         //         (data.datasize - last_addr) as usize,
-            //         //     )
-            //         //     .unwrap();
-            //         let bs = buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
-            //         result.extend(bs);
-            //         last_n -= data.datasize - last_addr;
-            //         last_addr = 0;
-
-            //         continue;
-            //     }
-
-            //     if last_addr < buffer_data.len() as u64
-            //         && last_n <= buffer_data.len() as u64 - last_addr
-            //     {
-            //         // let bs = ntfs
-            //         //     .reader
-            //         //     .read_n((data.start_addr + last_addr) as usize, (last_n) as usize)
-            //         //     .unwrap();
-            //         let bs =
-            //             buffer_data[(last_addr) as usize..(last_addr + last_n) as usize].to_vec();
-            //         result.extend(bs);
-            //         break;
-            //     }
-            // }
+            if let MFTValue::Data(datas) = &_t.value {
+                for data in &datas.datas {
+                    if last_addr > data.datasize {
+                        last_addr -= data.datasize;
+                        continue;
+                    }
+                    let buffer_data: Vec<u8>;
+                    if _t.common.is_compress() {
+                        let compress_data = ntfs
+                            .reader
+                            .read_n(
+                                data.start_addr as usize,
+                                data.start_addr as usize + data.datasize as usize,
+                            )
+                            .unwrap();
+                        buffer_data = lzxpress::lznt1::decompress(&compress_data).unwrap();
+                    } else {
+                        buffer_data = ntfs
+                            .reader
+                            .read_n(data.start_addr as usize, data.datasize as usize)
+                            .unwrap();
+                    }
+                    if last_addr < buffer_data.len() as u64
+                        && last_n > buffer_data.len() as u64 - last_addr
+                    {
+                        // let bs = ntfs
+                        //     .reader
+                        //     .read_n(
+                        //         (data.start_addr + last_addr) as usize,
+                        //         (data.datasize - last_addr) as usize,
+                        //     )
+                        //     .unwrap();
+                        let bs = buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
+                        result.extend(bs);
+                        last_n -= data.datasize - last_addr;
+                        last_addr = 0;
+    
+                        continue;
+                    }
+    
+                    if last_addr < buffer_data.len() as u64
+                        && last_n <= buffer_data.len() as u64 - last_addr
+                    {
+                        // let bs = ntfs
+                        //     .reader
+                        //     .read_n((data.start_addr + last_addr) as usize, (last_n) as usize)
+                        //     .unwrap();
+                        let bs =
+                            buffer_data[(last_addr) as usize..(last_addr + last_n) as usize].to_vec();
+                        result.extend(bs);
+                        break;
+                    }
+                }
+                
+            }
         }
         Ok(result)
     }
