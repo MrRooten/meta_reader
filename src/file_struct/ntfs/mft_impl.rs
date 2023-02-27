@@ -1024,6 +1024,9 @@ impl ValueA0_IndexAlloction {
         // f.write_all(&bs);
         while base < bs.len() {
             let entry_header = IndexEntryHeader::parse(bs.slice(base - 24..base), ntfs).unwrap();
+            if base + 16 > bs.len() {
+                break;
+            }
             let node_header = IndexNodeHeader::parse(bs.slice(base..base + 16), ntfs).unwrap();
             let c = node_header.allocated_index_node_size;
             let node_bs = bs.slice(base..node_header.allocated_index_node_size as usize + base);

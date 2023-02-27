@@ -232,8 +232,11 @@ fn main() {
     }
     else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        let file = ntfs.get_mft_entry_by_index(1272719);
-        println!("{:?}", file);
+        let file = ntfs.get_mft_by_path("\\$Extend").unwrap();
+        let subs = file.get_sub_files().unwrap();
+        for sub in subs {
+            println!("{} {}", sub.get_index(), sub.get_name());
+        }
     }
     return;
 }
