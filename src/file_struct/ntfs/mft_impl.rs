@@ -68,7 +68,7 @@ impl MFTEntry {
             Some(s) => s,
             None => {
                 names.reverse();
-                return Some(format!("{{No current}}:{}",names.join("\\")));
+                return Some(format!("<{}>:{}",self.get_index(), names.join("\\")));
             }
         };
         names.push(filename);
@@ -86,14 +86,14 @@ impl MFTEntry {
                 Some(s) => s,
                 None => {
                     names.reverse();
-                    return Some(format!("{{No parent}}:{}",names.join("\\")));
+                    return Some(format!("<{}>:{}",index, names.join("\\")));
                 }
             };
             let filename = match mft.filename() {
                 Some(s) => s,
                 None => {
                     names.reverse();
-                    return Some(format!("{{No current}}:{}",names.join("\\")));
+                    return Some(format!("<{}>:{}",index, names.join("\\")));
                 }
             };
 
@@ -254,10 +254,13 @@ impl MFTEntry {
                             .unwrap();
                         buffer_data = lzxpress::lznt1::decompress(&compress_data).unwrap();
                     } else {
-                        buffer_data = ntfs
+                        let __offset = data.start_addr % 512;
+                        let start_addr = data.start_addr - __offset;
+                        let tmp_data = ntfs
                             .reader
-                            .read_n(data.start_addr as usize, data.datasize as usize)
+                            .read_n(start_addr as usize, __offset as usize + data.datasize as usize)
                             .unwrap();
+                        buffer_data = tmp_data[__offset as usize..].to_vec();
                     }
                     if last_addr < buffer_data.len() as u64
                         && last_n > buffer_data.len() as u64 - last_addr
@@ -688,6 +691,9 @@ impl Value70_VolumeInfomation {
 }
 
 impl Value80_Data {
+    pub fn get_datas(&self) -> &Vec<DataDescriptor> {
+        return &self.datas;
+    }
     pub fn parse(
         bs: Bytes,
         ntfs: &Ntfs,
@@ -744,13 +750,17 @@ impl Value80_Data {
 
             index += filesize_len as usize + start_addr_len as usize + 1;
 
-            // if (offset & (1 << (start_addr_len*8 - 1))) != 0 {
-            //     let mut i = start_addr_len;
-            //     while i < 8 {
-            //         offset |= 0xff << (i*8);
-            //         i += 1;
-            //     }
-            // }
+            if (offset & (1 << (start_addr_len*8 - 1))) != 0 {
+                let mut i = start_addr_len;
+                while i < 8 {
+                    offset |= 0xff << (i*8);
+                    i += 1;
+                }
+                let _t: u128 = cluster_number as u128 + offset as u128;
+                cluster_number = (0xffffffffffffffff & _t) as u64;
+            } else {
+                cluster_number += offset;
+            }
             if filesize.checked_mul(ntfs.get_cluster_size()).is_none() {
                 return Err(MRError::new("Value80_Data::new filesize overflow"));
             }
@@ -758,7 +768,7 @@ impl Value80_Data {
                 datasize: filesize * ntfs.get_cluster_size(),
                 start_addr: offset,
             };
-            cluster_number += offset;
+            
             if cluster_number
                 .checked_mul(ntfs.get_cluster_size())
                 .is_none()

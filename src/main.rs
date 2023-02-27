@@ -232,14 +232,8 @@ fn main() {
     }
     else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        let reader = ntfs.get_reader();
-        let mfts = i_to_m(&ntfs).get_datas_of_mft();
-        for mft in mfts {
-            let v = reader.read_n(mft.get_start_addr() as usize, 0x40);
-            println!("{:?}", v);
-        }
-        
-        
+        let file = ntfs.get_mft_entry_by_index(1272719);
+        println!("{:?}", file);
     }
     return;
 }

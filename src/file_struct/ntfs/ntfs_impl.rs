@@ -1,4 +1,4 @@
-use std::{fs, io::Write, ops::Range, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fs, io::Write, ops::Range, rc::Rc};
 
 use bytes::{Buf, Bytes};
 
@@ -80,6 +80,8 @@ impl Ntfs {
 
         let offset = self.get_mft_offset() as usize;
         let bs = self.reader.read_n(offset, self.get_mft_size()).unwrap();
+        // let mut f = fs::File::create("./target/test.bin").unwrap();
+        // f.write_all(&bs);
         let mft = MFTEntry::parse(Bytes::from(bs), self, offset as u64, 0).unwrap();
         let data_values = mft.map_attr_chains.get(&0x80).unwrap().first().unwrap();
         let _t = &data_values.value;
@@ -89,69 +91,9 @@ impl Ntfs {
         &self.datas_of_mft
     }
 
-    pub fn cache_mfts<F>(&mut self, mut f: F) -> &Option<Vec::<(Range<usize>, Rc<MFTEntry>)>> 
-    where F: FnMut(u64) {
-        if self.cache_mfts.is_some() {
-            return &self.cache_mfts;
-        }
-        let mut cache = Vec::new();
-        self.iter_mft(|index, entry, is_deleted, ntfs| {
-            let entry = match entry {
-                Ok(o) => o,
-                Err(_) => {
-                    return ;
-                }
-            };
-            f(entry.index*self.get_mft_size() as u64);
-            let entry = Rc::new(entry);
-            let data_value = entry.get_data_value();
-            if let Some(value) = data_value {
-                let datas = &value.datas;
-                for data in datas {
-                    let v = (Range { start: data.start_addr as usize, end: data.start_addr as usize + data.datasize as usize }, entry.clone());
-                    cache.push(v);
-                }
-            }
-        });
-        cache.sort_by(|k,v| {
-            k.0.start.cmp(&v.0.start)
-        });
-        self.cache_mfts = Some(cache);
-        &self.cache_mfts
-    }
+    
 
-    pub fn search_addr_belong(&mut self, addr: u64) -> Option<Rc<MFTEntry>> {
-        let mfts = match self.cache_mfts(|_| {}) {
-            Some(s) => s,
-            None => {
-                return None;
-            }
-        };
-        let addr = addr as usize;
-        
-        let mut start = 0;
-        let mut end = mfts.len();
-        let mut middle = (start + end) / 2;
-        let mut mft = &mfts[middle];
-        while start <= end {
-            if addr > mft.0.end {
-                start = middle + 1 ;
-                middle = (start + end) / 2;
-                mft = &mfts[middle];
-            } else if addr < mft.0.start {
-                end = middle - 1;
-                middle = (start + end) / 2;
-                mft = &mfts[middle];
-            } else if addr >= mft.0.start && addr <= mft.0.end {
-                return Some(mft.1.clone());
-            } else if start == end && (addr > mft.0.start && addr < mft.0.end) {
-                return Some(mft.1.clone());;
-            } else {
-                return None;
-            }
-        }
-        None
-    }
+    
 
     pub fn get_mft_by_path(&mut self, path: &str) -> Result<MFTEntry, MRError> {
         let ps = path.split("\\").collect::<Vec<&str>>()[1..].to_vec();
@@ -210,8 +152,8 @@ impl Ntfs {
         (alignment - n % alignment) + n
     }
     pub fn iter_diy_block<F>(&self, size: usize, redundancy: usize, cores: u32, mut f: F)
-    where 
-        F: FnMut(u64, u64, Vec<u8>) -> bool
+    where
+        F: FnMut(u64, u64, Vec<u8>) -> bool,
     {
         let redundancy = Ntfs::align(redundancy, 512);
         let c_sectors = self.total_sectors;
@@ -226,7 +168,7 @@ impl Ntfs {
                 }
             };
             let diy_block_id = offset / size as u64;
-            let is_break = f(diy_block_id, offset ,bs);
+            let is_break = f(diy_block_id, offset, bs);
             if is_break {
                 break;
             }
@@ -246,7 +188,7 @@ impl Ntfs {
         let reader = self.get_reader();
         for data in datas {
             let d = data.datasize as usize;
-            
+
             let block = self.get_mft_size() * 0x100;
             let start = data.start_addr as usize;
             let mut i = 0;
@@ -310,7 +252,13 @@ impl Ntfs {
 
             let offset = data.start_addr as usize + _index as usize * self.get_mft_size();
 
-            let mft_bs = self.reader.read_n(offset, self.get_mft_size()).unwrap();
+            let mft_bs = match self.reader.read_n(offset, self.get_mft_size()) {
+                Ok(o) => o,
+                Err(e) => {
+                    //eprintln!("Index {},Offset {}: {:?}", index, offset ,e);
+                    return None;
+                }
+            };
             let entry = MFTEntry::parse(Bytes::from(mft_bs), self, offset as u64, index);
             match entry {
                 Ok(o) => {

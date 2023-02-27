@@ -5,6 +5,7 @@ use crate::{file_struct::ntfs::Ntfs, utils::MRError};
 pub mod stat;
 pub mod deleted_files;
 pub mod search_disk;
+pub mod search_files_content;
 pub struct NtfsModule {
     ntfs    : Ntfs,
     file    : String,

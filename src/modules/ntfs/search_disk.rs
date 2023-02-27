@@ -1,10 +1,15 @@
-use std::{collections::HashMap, fmt::Write, fs, num::ParseIntError, str::FromStr};
+use std::{
+    collections::HashMap, fmt::Write, fs, num::ParseIntError, ops::Range, rc::Rc, str::FromStr,
+};
 
 use bytes::Bytes;
 use colored::{ColoredString, Colorize};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
-use crate::{utils::{MRError, funcs::i_to_m}, file_struct::ntfs::Ntfs};
+use crate::{
+    file_struct::ntfs::{MFTEntry, Ntfs},
+    utils::{funcs::i_to_m, MRError},
+};
 
 use super::NtfsModule;
 use memchr::memmem;
@@ -19,23 +24,32 @@ pub fn vs_contains_sub(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
     memmem::find(haystack, needle)
 }
 
-fn ref_file(ntfs: &mut Ntfs, offset: u64, drive: &str) -> ColoredString {
-    let mft = ntfs.search_addr_belong(offset);
+fn ref_file(mfts: &Vec<(Range<usize>, u64)>, ntfs: &mut Ntfs, offset: u64, drive: &str, is_ref_file: bool) -> ColoredString {
+    if is_ref_file == false {
+        return format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red();
+    }
+    let mft = search_addr_belong(mfts, offset);
+    
     if let Some(mft) = mft {
+        let mft = match ntfs.get_mft_entry_by_index(mft) {
+            Some(s) => s,
+            None => {
+                return format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red();
+            }
+        };
         let filename = match mft.fullpath() {
             Some(s) => s,
             None => {
                 return format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red();
             }
         };
-        return format!("{}\\{}",drive, filename).bright_blue();
+        return format!("{}\\{}", drive, filename).bright_blue();
     }
     format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red()
 }
 
-
 #[derive(PartialEq)]
-enum MatchType {
+pub enum MatchType {
     Equal,
     Regex,
     RegexUtf16,
@@ -52,12 +66,79 @@ fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
     title
 }
 
-fn sec_to_s(secs: u64) -> String {
+pub fn sec_to_s(secs: u64) -> String {
     if secs >= 60 {
         format!("{}m{}s", secs / 60, secs % 60)
     } else {
         format!("{}s", secs)
     }
+}
+
+fn cache_mfts<F>(ntfs: &mut Ntfs, mut filter: F) -> Vec<(Range<usize>, u64)>
+where
+    F: FnMut(u64, &MFTEntry) -> bool,
+{
+    let mut result = Vec::new();
+    if result.len() > 0 {
+        return result;
+    }
+    let mut cache = Vec::new();
+    ntfs.iter_mft(|index, entry, is_deleted, ntfs| {
+        let entry = match entry {
+            Ok(o) => o,
+            Err(_) => {
+                return;
+            }
+        };
+        let flag = filter(entry.get_index() * ntfs.get_mft_size() as u64, &entry);
+        if flag == true {
+            let entry = Rc::new(entry);
+            let data_value = entry.get_data_value();
+            if let Some(value) = data_value {
+                let datas = value.get_datas();
+                for data in datas {
+                    let v = (
+                        Range {
+                            start: data.get_start_addr() as usize,
+                            end: data.get_start_addr() as usize + data.get_datasize() as usize,
+                        },
+                        entry.get_index(),
+                    );
+                    cache.push(v);
+                }
+            }
+        }
+    });
+    cache.sort_by(|k, v| k.0.start.cmp(&v.0.start));
+    result.extend(cache);
+    return result;
+}
+
+pub fn search_addr_belong(mfts: &Vec<(Range<usize>, u64)>, addr: u64) -> Option<u64> {
+    let addr = addr as usize;
+
+    let mut start = 0;
+    let mut end = mfts.len();
+    let mut middle = (start + end) / 2;
+    let mut mft = &mfts[middle];
+    while start <= end {
+        if addr > mft.0.end {
+            start = middle + 1;
+            middle = (start + end) / 2;
+            mft = &mfts[middle];
+        } else if addr < mft.0.start {
+            end = middle - 1;
+            middle = (start + end) / 2;
+            mft = &mfts[middle];
+        } else if addr >= mft.0.start && addr <= mft.0.end {
+            return Some(mft.1);
+        } else if start == end && (addr > mft.0.start && addr < mft.0.end) {
+            return Some(mft.1);
+        } else {
+            return None;
+        }
+    }
+    None
 }
 impl NtfsModule {
     pub fn search_disk(&mut self, args: HashMap<String, String>) -> Result<(), MRError> {
@@ -74,12 +155,13 @@ impl NtfsModule {
                 return Err(MRError::new("search_disk encode=${default:hex,base64,file,string,regex,regex_bytes,regex_utf16},to_search=${value}"));
             }
         };
-        let default_to_file = "false".to_string();
+        let default_to_file = "true".to_string();
         let to_file = match args.get("ref_file") {
             Some(s) => s,
             None => &default_to_file,
         };
         let bool_to_file;
+        let mut _mfts = vec![];
         if to_file.eq("true") {
             bool_to_file = true;
             let mft_mft = self.ntfs.get_datas_of_mft();
@@ -87,7 +169,7 @@ impl NtfsModule {
             for mft in mft_mft {
                 total += mft.get_datasize();
             }
-            
+
             let pb = ProgressBar::new(total);
             let mut save_offset = 0;
             println!("Loading mft....");
@@ -95,12 +177,26 @@ impl NtfsModule {
                 .unwrap()
                 .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
                 .progress_chars("#>-"));
-            self.ntfs.cache_mfts(|offset| {
+            _mfts = cache_mfts(&mut self.ntfs, |offset, entry| {
                 pb.set_position(offset);
+                let value = entry.get_data_value();
+                if value.is_none() {
+                    return false;
+                }
+
+                if let Some(datas) = value {
+                    if datas.get_datas().len() == 0 {
+                        return false;
+                    }
+                }
                 save_offset = offset;
+                return true;
             });
             pb.finish();
-            println!("Loaded {} mft", save_offset / self.ntfs.get_mft_size() as u64);
+            println!(
+                "Loaded {} Master Entries",
+                save_offset / self.ntfs.get_mft_size() as u64
+            );
         } else {
             bool_to_file = false;
         }
@@ -108,6 +204,7 @@ impl NtfsModule {
         let target: Vec<u8>;
         let mut regex_bytes_pattern = None::<regex::bytes::Regex>;
         let mut regex_pattern = None::<regex::Regex>;
+        
         if encode.eq("hex") {
             target = match hex_to_vec_u8(&to_search) {
                 Ok(o) => o,
@@ -171,8 +268,12 @@ impl NtfsModule {
                             &bs[size.unwrap()..size.unwrap() + target.len()],
                         )
                         .to_string();
-                        let s = format!("{} {:?} -> ref_file: {}", progress + size.unwrap() as u64, sub, 
-                            ref_file(i_to_m(ntfs), progress + size.unwrap() as u64, drive));
+                        let s = format!(
+                            "{} {:?} -> ref_file: {}",
+                            progress + size.unwrap() as u64,
+                            sub,
+                            ref_file(&_mfts, i_to_m(ntfs), progress + size.unwrap() as u64, drive, bool_to_file)
+                        );
                         pb2.println(s);
                     }
                 } else if match_type.eq(&MatchType::Regex) {
@@ -185,7 +286,7 @@ impl NtfsModule {
                                 "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
+                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
                             );
                             pb2.println(s);
                         }
@@ -197,7 +298,7 @@ impl NtfsModule {
                                 "utf-8: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_bytes(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
+                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
                             );
                             pb2.println(s);
                         }
@@ -212,7 +313,7 @@ impl NtfsModule {
                                 "utf-16: {} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_str(),
-                                ref_file(i_to_m(ntfs), progress + mt.start() as u64, drive)
+                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
                             );
                             pb2.println(s);
                         }
