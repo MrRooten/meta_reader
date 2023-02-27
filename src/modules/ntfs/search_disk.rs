@@ -227,18 +227,15 @@ impl NtfsModule {
         } else if encode.eq("string") {
             target = to_search.as_bytes().to_vec();
             match_type = MatchType::Equal;
-        } else if encode.eq("regex") {
-            regex_pattern = Some(regex::Regex::from_str(to_search).unwrap());
-            target = Vec::new();
-            match_type = MatchType::Regex;
-        } else if encode.eq("regex_bytes") {
+        } else if encode.eq("u16string") {
+            let mut v: Vec<u16> = to_search.encode_utf16().collect();
+            target = unsafe { v.align_to::<u8>().1.to_vec() };
+            match_type = MatchType::Equal;
+        }
+        else if encode.eq("regex") {
             regex_bytes_pattern = Some(regex::bytes::Regex::from_str(to_search).unwrap());
             target = Vec::new();
             match_type = MatchType::Regex;
-        } else if encode.eq("regex_utf16") {
-            regex_pattern = Some(regex::Regex::from_str(to_search).unwrap());
-            target = Vec::new();
-            match_type = MatchType::RegexUtf16;
         } else {
             return Err(MRError::new(
                 "Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16",
@@ -278,41 +275,13 @@ impl NtfsModule {
                     }
                 } else if match_type.eq(&MatchType::Regex) {
                     pb2.set_position(progress);
-                    if let Some(rp) = &regex_pattern {
-                        let s2 = String::from_utf8_lossy(&bs);
-
-                        for mt in rp.find_iter(&s2) {
-                            let s = format!(
-                                "utf-8: {} {:?} -> ref_file: {}",
-                                progress + mt.start() as u64,
-                                mt.as_str(),
-                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
-                            );
-                            pb2.println(s);
-                        }
-                    }
 
                     if let Some(rbp) = &regex_bytes_pattern {
                         for mt in rbp.find_iter(&bs) {
                             let s = format!(
-                                "utf-8: {} {:?} -> ref_file: {}",
+                                "{} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 mt.as_bytes(),
-                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
-                            );
-                            pb2.println(s);
-                        }
-                    }
-                } else if match_type.eq(&MatchType::RegexUtf16) {
-                    pb2.set_position(progress);
-                    let s1 = vec_u8_to_utf16string(&bs);
-                    if let Some(rp) = &regex_pattern {
-                        for mt in rp.find_iter(&s1) {
-                            let a = mt.start() % 0x400;
-                            let s = format!(
-                                "utf-16: {} {:?} -> ref_file: {}",
-                                progress + mt.start() as u64,
-                                mt.as_str(),
                                 ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
                             );
                             pb2.println(s);
