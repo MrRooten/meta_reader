@@ -15,23 +15,11 @@ impl Ext4 {
                 return Err(MRError::from(Box::new(e)));
             }
         };
-        let mut ext4 = Ext4 {
+
+        Ok(Ext4 {
             reader : mr_file,
             ..Default::default()
-        };
-        match ext4.set_super_block() {
-            Ok(o) => o,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-        match ext4.set_descs() {
-            Ok(o) => o,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-        Ok(ext4)
+        })
     }
 
     fn set_super_block(&mut self) -> Result<&SuperBlock,MRError> {
@@ -51,13 +39,6 @@ impl Ext4 {
         } else {
             super_block.is_64bit = false;
         }
-
-        let block_size = num::pow(2,(10+super_block.s_log_block_size) as usize);
-        
-        if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
-            return Err(MRError::new("Parse error: block_size is not right"));
-        }
-        self.block_size = block_size;
         //if 64bit feature is set
         if super_block.is_64bit {
             super_block.s_log_groups_per_flex = (&sbytes[0x174..0x175]).get_u8();
@@ -96,41 +77,6 @@ impl Ext4 {
 
     }
 
-    fn align(n: usize, alignment: usize) -> usize {
-        (alignment - n % alignment) + n
-    }
-
-    pub fn get_blocks_count(&self) -> u64 {
-        let block = self.get_super_block().unwrap();
-        return block.s_block_count as u64;
-    }
-
-    pub fn iter_diy_block<F>(&self, size: usize, redundancy: usize, cores: u32, mut f: F)
-    where 
-        F: FnMut(u64, u64, Vec<u8>) -> bool
-    {
-        let redundancy = Ext4::align(redundancy, 512);
-        let c_sectors = self.get_blocks_count() as usize;
-        let c_bytes = c_sectors * self.get_block_size();
-        let mut offset = 0x1000;
-        let mut _i = 0;
-        while offset < c_bytes {
-            let bs = match self.reader.read_n(offset as usize, size + redundancy) {
-                Ok(o) => o,
-                Err(e) => {
-                    break;
-                }
-            };
-            let diy_block_id = (offset / size) as u64;
-            let is_break = f(diy_block_id, offset as u64 ,bs);
-            if is_break {
-                break;
-            }
-            offset += size;
-            _i += 1;
-        }
-    }
-
     fn set_descs(&mut self) -> Result<&Vec<GroupDescriptor>,MRError> {
         let mut result: Vec<GroupDescriptor> = Vec::default();
         let super_block = self.get_super_block();
@@ -140,18 +86,22 @@ impl Ext4 {
                 return Err(MRError::from(Box::new(e)));
             }
         };
-        
+        let block_size = num::pow(2,(10+super_block.s_log_block_size) as usize);
         let descs_size = super_block.s_desc_size as usize;
+        if block_size != 1024 && block_size != 2048 && block_size != 4096 && block_size != 64*1024 {
+            return Err(MRError::new("Parse error: block_size is not right"));
+        }
+        
         let len = super_block.s_log_groups_per_flex as usize * descs_size;
         if len % descs_size != 0 {
             return Err(MRError::new("Parse error: Group Descriptor size is not right"));
         }
-        let block_size = self.get_block_size();
+        
         let sbytes = self.reader.read_n(block_size, len).expect("error");
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
         let mut count = 0;
-        
+        self.block_size = block_size;
         loop {
             let gdt = self.reader.read_n(block_size + i, descs_size).expect("error");
             let gdt = Bytes::from(gdt);
@@ -325,7 +275,12 @@ impl Ext4 {
     
     pub fn is_inode_taken(&mut self, inode: u32) -> bool {
         let index = (inode - 1) % self.get_super_block().unwrap().s_inodes_per_group;
-        let gdt = self.get_inode_belong_gdt(inode).unwrap();
+        let gdt = match self.get_inode_belong_gdt(inode) {
+            Ok(o) => o,
+            Err(e) => {
+                return false;
+            }
+        };
         let range = gdt.get_inode_bitmap();
         let inode_bitmap = self.read_raw(range).unwrap();
         let bit_index = index / 8;

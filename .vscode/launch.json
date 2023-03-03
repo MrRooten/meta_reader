@@ -38,7 +38,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["ntfs","\\\\.\\H:","search_disk","encode=string,to_search=flag,ref_file=true"],
+            "args": ["ext4","/dev/sdb","list_deleted_files","path=/"],
             "cwd": "${workspaceFolder}"
         },
         {
