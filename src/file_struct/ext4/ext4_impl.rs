@@ -34,10 +34,11 @@ impl Ext4 {
         super_block.s_inode_size = (&sbytes[0x58..0x5a]).get_u16_le();
         super_block.s_reserved_gdt_blocks = (&sbytes[0xce..0xd0]).get_u16_le();
         super_block.s_desc_size = (&sbytes[0xfe..0x100]).get_u16_le();
-        if super_block.s_desc_size == 64 {
+        if super_block.s_desc_size > 32 {
             super_block.is_64bit = true;
         } else {
             super_block.is_64bit = false;
+            super_block.s_desc_size = 32;
         }
         //if 64bit feature is set
         if super_block.is_64bit {
