@@ -113,15 +113,6 @@ fn main() {
                     println!();
                 })
                 .unwrap();
-        } else if function.eq("list_recoverable") {
-            let dirs = module.list_journal_recoverable(_f_args).unwrap();
-            for dir in dirs {
-                println!(
-                    "{} zero_end_name:{}",
-                    dir.get_name(),
-                    dir.get_zero_end_name()
-                );
-            }
         } else if function.eq("journal_recover_file") {
             module.journal_recover_file(_f_args).unwrap();
         } else if function.eq("list_files") {
@@ -131,11 +122,39 @@ fn main() {
             }
         } else if function.eq("read_file") {
             module.read_file(_f_args).unwrap();
-        } else if function.eq("list_recoverable_inodes") {
-            let inodes = module.list_recoverable_inodes(_f_args).unwrap();
-            for inode in inodes {
-                println!("{}\n\t{:?}", inode.0, inode.1);
-            }
+        } else if function.eq("list_recoverable") {
+            let mut last: String = String::new();
+            let inodes = module
+                .list_recoverable_inodes(_f_args, |id, inode, name, ext4| {
+                    let mut output = String::new();
+                    output.push_str(&format!("{}\n", name));
+                    //output.push_str(&format!("\tname2: {}\n", name2));
+                    output.push_str(&format!("\tinode id: {}\n", id));
+                    output.push_str(&format!("\tatime: {}\n", inode.get_atime().to_string()));
+                    output.push_str(&format!("\tctime: {}\n", inode.get_ctime().to_string()));
+                    output.push_str(&format!("\tmtime: {}\n", inode.get_mtime().to_string()));
+                    output.push_str(&format!("\tdtime: {}\n", inode.get_dtime().to_string()));
+                    output.push_str(&format!(
+                        "\tbirth time: {}\n",
+                        inode.get_birth().to_string()
+                    ));
+                    output.push_str(&format!(
+                        "\tfile size: {}\n",
+                        filesize_to_human_string(inode.get_size() as usize)
+                    ));
+                    output.push_str(&format!("\tuid: {}\n", inode.get_uid()));
+                    output.push_str(&format!(
+                        "\tusername: {} \t-> #Base on /etc/passwd\n",
+                        get_username(inode.get_uid())
+                    ));
+                    if last.eq(&output) {
+                        return;
+                    } else {
+                        println!("{}", output);
+                        last = output;
+                    }
+                })
+                .unwrap();
         } else if function.eq("search_deleted_files") {
             let files = module
                 .search_deleted_files(_f_args, |id, inode, name, name2, ext4| {
@@ -227,8 +246,7 @@ fn main() {
                 println!("[Error]:{}", e);
             }
         }
-    }
-    else if args[1].eq("test") {
+    } else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
         let file = ntfs.get_mft_by_path("\\$Extend").unwrap();
         let subs = file.get_sub_files().unwrap();
