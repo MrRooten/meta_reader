@@ -69,7 +69,7 @@ fn main() {
             );
             println!("\t${{ext4_file}} list_files path=${{target_dir}}");
             println!("\t${{ext4_file}} read_file path=${{path}}");
-            println!("\t${{ext4_file}} search_deleted_files path=${{path}}");
+            println!("\t${{ext4_file}} search_deleted_files path=${{path_dir}}");
             return;
         }
         let img = &args[2];
