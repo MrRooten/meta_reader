@@ -49,7 +49,7 @@ pub fn get_username(uid: u16) -> String {
 
 fn main() {
     sigpipe::reset();
-    let args = std::env::args().collect::<Vec<String>>();
+    let mut args = std::env::args().collect::<Vec<String>>();
     if args.len() == 1 {
         println!("{} ${{file_format}} ${{function}} ${{options}}", args[0]);
         println!("example:");
@@ -59,7 +59,35 @@ fn main() {
         );
         return;
     }
-
+    let mut _f_args = HashMap::new();
+    if args[1].eq("nsds") {
+        if args.len() < 4 {
+            println!("nsdb alias for [ntfs ${{img}} search_disk encode=string,to_search=${{search}}]");
+            println!("nsdb ${{img}} ${{string}}");
+            return ;
+        }
+        _f_args.insert("encode".to_string(),"string".to_string());
+        _f_args.insert("to_search".to_string(), args[3].to_string());
+    } else if args[1].eq("nsdr") {
+        if args.len() < 4 {
+            println!("nsdb alias for [ntfs ${{img}} search_disk encode=regex,to_search=${{search}}]");
+            println!("nsdb ${{img}} ${{string}}");
+            return ;
+        }
+        _f_args.insert("encode".to_string(),"regex".to_string());
+        _f_args.insert("to_search".to_string(), args[3].to_string());
+    }
+    
+    else {
+        if args.len() >= 5 {
+            let options = args[4].split(",");
+            for option in options {
+                let kv = option.split("=");
+                let kv = kv.collect::<Vec<&str>>();
+                _f_args.insert(kv[0].trim().to_string(), kv[1].trim().to_string());
+            }
+        }
+    }
     if args[1].eq("ext4") {
         if args.len() <= 3 {
             println!("support function:");
@@ -77,15 +105,7 @@ fn main() {
         let mut module = Ext4Module::new(img).unwrap();
 
         let function = &args[3];
-        let mut _f_args = HashMap::new();
-        if args.len() >= 5 {
-            let options = args[4].split(",");
-            for option in options {
-                let kv = option.split("=");
-                let kv = kv.collect::<Vec<&str>>();
-                _f_args.insert(kv[0].trim().to_string(), kv[1].trim().to_string());
-            }
-        }
+        
 
         if function.eq("list_deleted_files") {
             let dirs = module
@@ -228,7 +248,7 @@ fn main() {
         let mut module = NtfsModule::new(img).unwrap();
 
         let function = &args[3];
-        let mut _f_args = HashMap::new();
+        
         if args.len() >= 5 {
             let options = args[4].split(",");
             for option in options {

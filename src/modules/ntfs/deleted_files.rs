@@ -36,10 +36,6 @@ impl NtfsModule {
             if (res.get_flags() == 0 || res.get_flags() == 2) && res.get_parent_index() == parent_index as i64 {
                 println!("{} {:?} {}", res.get_index(), res.filename(), res.get_flags());
             }
-
-            if index % 9333 == 0 {
-                println!("{}", index);
-            }
             
         });
         Ok(())
