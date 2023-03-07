@@ -59,6 +59,7 @@ fn main() {
         );
         return;
     }
+
     if args[1].eq("ext4") {
         if args.len() <= 3 {
             println!("support function:");
