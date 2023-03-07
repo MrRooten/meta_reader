@@ -1,8 +1,9 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use bytes::Bytes;
+use colored::{Colorize, ColoredString};
 use meta_reader::{
     file_struct::{
         elf::{elf32::ELF32, elf64::ELF64},
@@ -46,39 +47,173 @@ pub fn get_username(uid: u16) -> String {
         s.get(&uid).unwrap_or(&"Unknown".to_string()).to_string()
     }
 }
-
+fn help(program_name: &ColoredString) {
+    println!("{} ${{alias}} [${{option}}[${{option}}..]]", program_name);
+    println!(
+        "{} {} ${{ntfs_file}} ${{ntfs_function}} ${{option}}",
+        program_name,
+        "ntfs".bright_red()
+    );
+    println!(
+        "{} {} ${{ext4_file}} ${{ext4_function}} ${{option}}",
+        program_name,
+        "ext4".bright_red()
+    );
+    println!("{} {}", program_name, "alias".bright_red());
+    println!("\t: Show aliases");
+    println!("Examples:");
+    println!(
+        "\t{} ntfs \\\\.\\C: search_disk encoding=regex,to_search=http://.*/",
+        program_name
+    );
+    println!("\t{} nsdr \\\\.\\C: http://.*/", program_name);
+    println!("\t{} alias", program_name);
+    return;
+}
 fn main() {
     sigpipe::reset();
     let mut args = std::env::args().collect::<Vec<String>>();
+    let program_path = PathBuf::from(&args[0]); // 获取全路径
+    let program_name = program_path.file_name().unwrap().to_str().unwrap().green();
     if args.len() == 1 {
-        println!("{} ${{file_format}} ${{function}} ${{options}}", args[0]);
-        println!("example:");
-        println!(
-            "\t{} ext4 ./test.img find_deleted_files path=/test_dir/",
-            args[0]
-        );
+        help(&program_name);
+        return;
+    }
+
+    if args[1].eq("help") {
+        help(&program_name);
         return;
     }
     let mut _f_args = HashMap::new();
+    let mut function = String::new();
     if args[1].eq("nsds") {
         if args.len() < 4 {
-            println!("nsdb alias for [ntfs ${{img}} search_disk encode=string,to_search=${{search}}]");
-            println!("nsdb ${{img}} ${{string}}");
-            return ;
+            println!(
+                "nsds alias -> [ntfs ${{img}} search_disk encode=string,to_search=${{str_value}}]"
+            );
+            println!("nsds ${{img}} ${{string}}");
+            return;
         }
-        _f_args.insert("encode".to_string(),"string".to_string());
+        args[1] = "ntfs".to_string();
+        function = "search_disk".to_string();
+        _f_args.insert("encode".to_string(), "string".to_string());
         _f_args.insert("to_search".to_string(), args[3].to_string());
     } else if args[1].eq("nsdr") {
         if args.len() < 4 {
-            println!("nsdb alias for [ntfs ${{img}} search_disk encode=regex,to_search=${{search}}]");
-            println!("nsdb ${{img}} ${{string}}");
-            return ;
+            println!("nsdr alias -> [ntfs ${{img}} search_disk encode=regex,to_search=${{regex_pattern}}]");
+            println!("{} nsdr ${{img}} ${{regex_pattern}}", program_name);
+            return;
         }
-        _f_args.insert("encode".to_string(),"regex".to_string());
+        args[1] = "ntfs".to_string();
+        function = "search_disk".to_string();
+        _f_args.insert("encode".to_string(), "regex".to_string());
         _f_args.insert("to_search".to_string(), args[3].to_string());
-    }
-    
-    else {
+    } else if args[1].eq("nsdh") {
+        if args.len() < 4 {
+            println!(
+                "{} alias -> [ntfs ${{img}} search_disk encode=hex,to_search=${{hex_string}}]",
+                "nsdh".bright_red()
+            );
+            println!("{} nsdh ${{img}} ${{hex_string}}", program_name);
+            return;
+        }
+        args[1] = "ntfs".to_string();
+        function = "search_disk".to_string();
+        _f_args.insert("encode".to_string(), "hex".to_string());
+        _f_args.insert("to_search".to_string(), args[3].to_string());
+    } else if args[1].eq("nsdb") {
+        if args.len() < 4 {
+            println!("nsdb alias -> [ntfs ${{img}} search_disk encode=hex,to_search=${{base64}}]");
+            println!("{} nsdb ${{img}} ${{base64}}", program_name);
+            return;
+        }
+        args[1] = "ntfs".to_string();
+        function = "search_disk".to_string();
+        _f_args.insert("encode".to_string(), "base64".to_string());
+        _f_args.insert("to_search".to_string(), args[3].to_string());
+    } else if args[1].eq("e4ld") {
+        if args.len() < 4 {
+            println!(
+                "e4ld alias -> [ext4 ${{ext4_file}} list_deleted_files path=${{target_dir}}]"
+            );
+            println!("{} e4ld ${{img}} ${{path_dir}}", program_name);
+            return;
+        }
+        args[1] = "ext4".to_string();
+        function = "list_deleted_files".to_string();
+        _f_args.insert("path".to_string(), args[3].to_string());
+    } else if args[1].eq("e4lr") {
+        if args.len() < 4 {
+            println!("e4lr alias -> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]");
+            println!("{} e4lr ${{img}} ${{path_dir}}", program_name);
+            return;
+        }
+        args[1] = "ext4".to_string();
+        function = "list_recoverable".to_string();
+        _f_args.insert("path".to_string(), args[3].to_string());
+    } else if args[1].eq("e4jr") {
+        if args.len() < 5 {
+            println!("e4jr alias -> [ext4 ${{ext4_file}} journal_recover_file inode=${{inode_id}},out_file=${{out_file}}]");
+            println!("{} e4jr ${{img}} ${{inode}} ${{outfile}}", program_name);
+            return;
+        }
+        args[1] = "ext4".to_string();
+        function = "journal_recover_file".to_string();
+        _f_args.insert("inode".to_string(), args[3].to_string());
+        _f_args.insert("out_file".to_string(), args[4].to_string());
+    } else if args[1].eq("e4cat") {
+        if args.len() < 4 {
+            println!("e4cat alias -> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]");
+            println!("{} e4cat ${{img}} ${{path_dir}}", program_name);
+            return;
+        }
+        args[1] = "ext4".to_string();
+        function = "read_file".to_string();
+        _f_args.insert("path".to_string(), args[3].to_string());
+    } else if args[1].eq("e4sdf") {
+        if args.len() < 4 {
+            println!("e4sdf alias -> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]");
+            println!("{} e4sdf ${{img}} ${{path_dir}}", program_name);
+            return;
+        }
+        args[1] = "ext4".to_string();
+        function = "search_deleted_files".to_string();
+        _f_args.insert("path".to_string(), args[3].to_string());
+    } else if args[1].eq("alias") {
+        println!("{} {} \n\t-> [ntfs ${{ntfs_file}} search_disk encode=regex,to_search=${{regex_pattern}}]",program_name, "nsdr".bright_red());
+        println!(
+            "{} {} \n\t-> [ntfs ${{ntfs_file}} search_disk encode=hex,to_search=${{hex_string}}]",
+            program_name,
+            "nsdh".bright_red()
+        );
+        println!(
+            "{} {} \n\t-> [ntfs ${{ntfs_file}} search_disk encode=hex,to_search=${{base64}}]",
+            program_name,
+            "nsdb".bright_red()
+        );
+        println!(
+            "{} {} \n\t-> [ext4 ${{ext4_file}} list_deleted_files path=${{target_dir}}]",
+            program_name,
+            "e4ld".bright_red()
+        );
+        println!(
+            "{} {} \n\t-> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]",
+            program_name,
+            "e4lr".bright_red()
+        );
+        println!("{} {} \n\t-> [ext4 ${{ext4_file}} journal_recover_file inode=${{inode_id}},out_file=${{out_file}}]", program_name, "e4jr".bright_red());
+        println!(
+            "{} {} \n\t-> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]",
+            program_name,
+            "e4cat".bright_red()
+        );
+        println!(
+            "{} {} \n\t-> [ext4 ${{ext4_file}} list_recoverable path=${{target_dir}}]",
+            program_name,
+            "e4sdf".bright_red()
+        );
+    } else {
+        function = (&args[3]).to_string();
         if args.len() >= 5 {
             let options = args[4].split(",");
             for option in options {
@@ -88,6 +223,7 @@ fn main() {
             }
         }
     }
+
     if args[1].eq("ext4") {
         if args.len() <= 3 {
             println!("support function:");
@@ -103,9 +239,6 @@ fn main() {
         }
         let img = &args[2];
         let mut module = Ext4Module::new(img).unwrap();
-
-        let function = &args[3];
-        
 
         if function.eq("list_deleted_files") {
             let dirs = module
@@ -247,17 +380,6 @@ fn main() {
         let img = &args[2];
         let mut module = NtfsModule::new(img).unwrap();
 
-        let function = &args[3];
-        
-        if args.len() >= 5 {
-            let options = args[4].split(",");
-            for option in options {
-                let kv = option.split("=");
-                let kv = kv.collect::<Vec<&str>>();
-                _f_args.insert(kv[0].trim().to_string(), kv[1].trim().to_string());
-            }
-        }
-
         if function.eq("stat") {
             module.stat(_f_args).unwrap();
         } else if function.eq("deleted_files") {
@@ -274,6 +396,13 @@ fn main() {
         for sub in subs {
             println!("{} {}", sub.get_index(), sub.get_name());
         }
+    } else if args[1].eq("alias") {
+    } else {
+        println!(
+            "Not support {}, try {} command",
+            args[1],
+            "help".bright_red()
+        );
     }
     return;
 }
