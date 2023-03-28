@@ -119,6 +119,67 @@ impl USNChangeJournal {
         })
     }
 
+    pub fn read_all(&self) -> Result<Vec<u8>, MRError> {
+        let data_runs: Vec<DataDescriptor>;
+        if self.mft.map_attr_chains.get(&0x20).is_some() {
+            let ntfs = unsafe { &*self.ntfs.unwrap() };
+            let ntfs = i_to_m(ntfs);
+            let mut _data_runs: Option<Vec<DataDescriptor>> = None;
+            if let Some(attrs) = self.mft.map_attr_chains.get(&0x20) {
+                let attr = attrs.first().unwrap();
+                if let MFTValue::AttrList(attrlist) = &attr.value {
+                    let list = match &attrlist.list {
+                        Some(s) => s,
+                        None => {
+                            return Err(MRError::new("List is empty"));
+                        }
+                    };
+                    for l in list {
+                        if l.name.eq("$J") {
+                            let mft = match ntfs.get_mft_entry_by_index(l.file_reference.mft_index)
+                            {
+                                Some(s) => s,
+                                None => {
+                                    return Err(MRError::new("Not found mft"));
+                                }
+                            };
+
+                            let data = mft.get_data_value().unwrap();
+                            let data = data.datas[1..].to_vec();
+                            _data_runs = Some(data);
+                        }
+                    }
+                }
+            }
+            if _data_runs.is_none() {
+                return Err(MRError::new("Not found $J Attribute List"));
+            }
+
+            data_runs = _data_runs.unwrap();
+        } else {
+            let stream = match self.mft.get_stream("$J") {
+                Some(s) => s,
+                None => {
+                    return Err(MRError::new("Not found stream"));
+                }
+            };
+
+            data_runs = stream.datas[1..].to_vec();
+        }
+
+        let mut result = vec![];
+        let ntfs = unsafe { &*self.ntfs.unwrap() };
+
+        for data in data_runs {
+            let tmp_data = ntfs
+                .reader
+                .read_n(data.start_addr as usize, data.datasize as usize)
+                .unwrap();
+            result.extend(tmp_data);
+        }
+        Ok(result)
+    }
+
     fn read_data(&mut self, addr: usize, n: usize) -> Result<Vec<u8>, MRError> {
         let data_runs: Vec<DataDescriptor>;
         if self.mft.map_attr_chains.get(&0x20).is_some() {
@@ -333,6 +394,7 @@ impl USNChangeJournal {
                 return Err(e);
             }
         };
+
         let bs = Bytes::from(bs);
         let mut i = 0;
         let mut offset = 0;
