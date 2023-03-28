@@ -393,9 +393,9 @@ fn main() {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
         //let b = ntfs.get_mft_entry_by_index(516778);
         let mut file = ntfs.get_usn_journal().unwrap();
-        let a = file.read_n_entry(10).unwrap();
+        let a = file.read_n_entry(1000).unwrap();
         for i in a {
-            println!("{:?}",i);
+            println!("{} {}",i.filename(), i.filetime());
         }
     } else if args[1].eq("alias") {
     } else {

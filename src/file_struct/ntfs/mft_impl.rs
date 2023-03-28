@@ -884,11 +884,13 @@ impl Value80_Data {
 
             let _s = (index + 1 + filesize_len as usize);
             if _s + start_addr_len as usize > bs.len() {
+                fs::write("./target/dump", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
             let mut offset = match get_le_u64(bs.slice(_s.._s + start_addr_len as usize)) {
                 Some(o) => o,
                 None => {
+                    fs::write("./target/dump", bs.to_vec());
                     return Err(MRError::new(
                         "too many bytes in Value80_Data::new get offset",
                     ));
@@ -909,6 +911,7 @@ impl Value80_Data {
                 cluster_number += offset;
             }
             if filesize.checked_mul(ntfs.get_cluster_size()).is_none() {
+                fs::write("./target/dump", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new filesize overflow"));
             }
             let data = DataDescriptor {
@@ -920,6 +923,7 @@ impl Value80_Data {
                 .checked_mul(ntfs.get_cluster_size())
                 .is_none()
             {
+                fs::write("./target/dump", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new start_addr overflow"));
             }
             let data = DataDescriptor {
