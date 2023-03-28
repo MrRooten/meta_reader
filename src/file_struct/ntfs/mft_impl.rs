@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, io::Write};
+use std::{collections::HashMap, fs, io::Write, mem::align_of};
 
 use bytes::{Buf, Bytes};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
@@ -8,10 +8,20 @@ use crate::utils::{funcs::i_to_m, MRError};
 use super::{
     CCommon, CNonResident, CResident, DataDescriptor, FileItem, FileReference, FileTime,
     IndexEntryHeader, IndexNodeHeader, IndexRootHeader, IndexValue, MFTAttribute, MFTEntry,
-    MFTValue, Ntfs, Value10_StandardInfomation, Value20_AttributeList, Value30_FileName,
+    MFTValue, Ntfs, V20Attr, Value10_StandardInfomation, Value20_AttributeList, Value30_FileName,
     Value40_ObjectId, Value50_SecurityDescriptor, Value60_VolumeName, Value70_VolumeInfomation,
-    Value80_Data, Value90_IndexRoot, ValueA0_IndexAlloction,
+    Value80_Data, Value90_IndexRoot, ValueA0_IndexAlloction, MFTStream,
 };
+
+pub fn long_to_short(name: &str, names: Vec<&str>) -> String {
+    unimplemented!()
+}
+
+fn align(n: usize, alignment: usize) -> usize {
+    (alignment - n % alignment) + n
+}
+
+
 
 impl MFTEntry {
     pub fn filename(&self) -> Option<String> {
@@ -33,6 +43,24 @@ impl MFTEntry {
         None
     }
 
+    pub fn get_stream(&self, name: &str) -> Option<&Value80_Data> {
+        let attrs = match self.map_attr_chains.get(&0x80) {
+            Some(o) => o,
+            None => {
+                return None;
+            }
+        };
+
+        for attr in attrs {
+            if attr.attr_name.eq(name) {
+                if let MFTValue::Data(d) = &attr.value {
+                    return Some(d);
+                }
+            }
+        }
+        return None;
+    }
+
     pub fn get_flags(&self) -> u16 {
         self.entry_flags
     }
@@ -40,6 +68,7 @@ impl MFTEntry {
     pub fn get_index(&self) -> u64 {
         self.index
     }
+
 
     pub fn get_parent_index(&self) -> i64 {
         if self.parent_index > 0 {
@@ -68,7 +97,7 @@ impl MFTEntry {
             Some(s) => s,
             None => {
                 names.reverse();
-                return Some(format!("<{}>:{}",self.get_index(), names.join("\\")));
+                return Some(format!("<{}>:{}", self.get_index(), names.join("\\")));
             }
         };
         names.push(filename);
@@ -79,21 +108,21 @@ impl MFTEntry {
             return Some(names.join("\\"));
         }
         index = parent_index;
-        
+
         while index > 13 {
             let mft = ntfs.get_mft_entry_by_index(index as u64);
             let mft = match mft {
                 Some(s) => s,
                 None => {
                     names.reverse();
-                    return Some(format!("<{}>:{}",index, names.join("\\")));
+                    return Some(format!("<{}>:{}", index, names.join("\\")));
                 }
             };
             let filename = match mft.filename() {
                 Some(s) => s,
                 None => {
                     names.reverse();
-                    return Some(format!("<{}>:{}",index, names.join("\\")));
+                    return Some(format!("<{}>:{}", index, names.join("\\")));
                 }
             };
 
@@ -227,6 +256,77 @@ impl MFTEntry {
     fn min(self, n1: &usize, n2: &usize) -> usize {
         unimplemented!()
     }
+
+    pub fn read_n_in_stream(&self, addr: usize, n: usize, stream: &str) -> Result<Vec<u8>, MRError> {
+        let datas = match self.get_stream(stream) {
+            Some(s) => s,
+            None => {
+                return Err(MRError::new("Not found stream"));
+            }
+        };
+        let mut result = Vec::new();
+        let real_n = n;
+        let mut last_n = real_n as u64;
+        let mut last_addr = addr as u64;
+        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        for data in &datas.datas {
+            if last_addr > data.datasize {
+                last_addr -= data.datasize;
+                continue;
+            }
+            let buffer_data: Vec<u8>;
+            let read_size = {
+                if n < data.datasize as usize {
+                    n
+                } else {
+                    data.datasize as usize
+                }
+            };
+
+            let __offset = data.start_addr % 512;
+            let start_addr = data.start_addr - __offset;
+            let tmp_data = ntfs
+                .reader
+                .read_n(start_addr as usize, __offset as usize + read_size as usize)
+                .unwrap();
+            buffer_data = tmp_data[__offset as usize..].to_vec();
+
+            if last_addr < buffer_data.len() as u64
+                && last_n > buffer_data.len() as u64 - last_addr
+            {
+                // let bs = ntfs
+                //     .reader
+                //     .read_n(
+                //         (data.start_addr + last_addr) as usize,
+                //         (data.datasize - last_addr) as usize,
+                //     )
+                //     .unwrap();
+                let bs =
+                    buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
+                result.extend(bs);
+                last_n -= data.datasize - last_addr;
+                last_addr = 0;
+
+                continue;
+            }
+
+            if last_addr < buffer_data.len() as u64
+                && last_n <= buffer_data.len() as u64 - last_addr
+            {
+                // let bs = ntfs
+                //     .reader
+                //     .read_n((data.start_addr + last_addr) as usize, (last_n) as usize)
+                //     .unwrap();
+                let bs = buffer_data[(last_addr) as usize..(last_addr + last_n) as usize]
+                    .to_vec();
+                result.extend(bs);
+                break;
+            }
+        }
+
+        Ok(result)
+    }
+
     pub fn read_n(&self, addr: usize, n: usize) -> Result<Vec<u8>, MRError> {
         let attrs = self.map_attr_chains.get(&0x80).unwrap();
         let mut result = Vec::new();
@@ -236,7 +336,6 @@ impl MFTEntry {
         let ntfs = unsafe { &*self.ntfs.unwrap() };
 
         for _t in attrs {
-
             if let MFTValue::Data(datas) = &_t.value {
                 for data in &datas.datas {
                     if last_addr > data.datasize {
@@ -244,24 +343,22 @@ impl MFTEntry {
                         continue;
                     }
                     let buffer_data: Vec<u8>;
-                    if _t.common.is_compress() {
-                        let compress_data = ntfs
-                            .reader
-                            .read_n(
-                                data.start_addr as usize,
-                                data.start_addr as usize + data.datasize as usize,
-                            )
-                            .unwrap();
-                        buffer_data = lzxpress::lznt1::decompress(&compress_data).unwrap();
-                    } else {
-                        let __offset = data.start_addr % 512;
-                        let start_addr = data.start_addr - __offset;
-                        let tmp_data = ntfs
-                            .reader
-                            .read_n(start_addr as usize, __offset as usize + data.datasize as usize)
-                            .unwrap();
-                        buffer_data = tmp_data[__offset as usize..].to_vec();
-                    }
+                    let read_size = {
+                        if n < data.datasize as usize {
+                            n
+                        } else {
+                            data.datasize as usize
+                        }
+                    };
+
+                    let __offset = data.start_addr % 512;
+                    let start_addr = data.start_addr - __offset;
+                    let tmp_data = ntfs
+                        .reader
+                        .read_n(start_addr as usize, __offset as usize + read_size as usize)
+                        .unwrap();
+                    buffer_data = tmp_data[__offset as usize..].to_vec();
+
                     if last_addr < buffer_data.len() as u64
                         && last_n > buffer_data.len() as u64 - last_addr
                     {
@@ -272,14 +369,15 @@ impl MFTEntry {
                         //         (data.datasize - last_addr) as usize,
                         //     )
                         //     .unwrap();
-                        let bs = buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
+                        let bs =
+                            buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
                         result.extend(bs);
                         last_n -= data.datasize - last_addr;
                         last_addr = 0;
-    
+
                         continue;
                     }
-    
+
                     if last_addr < buffer_data.len() as u64
                         && last_n <= buffer_data.len() as u64 - last_addr
                     {
@@ -287,14 +385,15 @@ impl MFTEntry {
                         //     .reader
                         //     .read_n((data.start_addr + last_addr) as usize, (last_n) as usize)
                         //     .unwrap();
-                        let bs =
-                            buffer_data[(last_addr) as usize..(last_addr + last_n) as usize].to_vec();
+                        let bs = buffer_data[(last_addr) as usize..(last_addr + last_n) as usize]
+                            .to_vec();
                         result.extend(bs);
                         break;
                     }
                 }
-                
             }
+
+            break; //no more data stream parse, for tmp
         }
         Ok(result)
     }
@@ -323,6 +422,7 @@ impl MFTEntry {
         let mut map_attr_chains: HashMap<u32, Vec<MFTAttribute>> = HashMap::new();
         let mut base_addr = 56;
         let len = bs.len();
+
         while base_addr < len - 1 {
             let _attr_len = (&bs[base_addr + 4..base_addr + 8]).get_u16_le();
             let attr = match MFTAttribute::parse(
@@ -444,7 +544,7 @@ impl FileItem {
     }
 }
 
-fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
+pub fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
     let title: Vec<u16> = bytes
         .chunks_exact(2)
         .into_iter()
@@ -475,7 +575,7 @@ impl MFTValue {
         index: u64,
         is_nonresident: bool,
         base: u64,
-        common: &CCommon,
+        common: &CCommon
     ) -> Result<MFTValue, MRError> {
         if attr_type == 0x10 {
             let info = match Value10_StandardInfomation::parse(bs, ntfs, index) {
@@ -486,6 +586,15 @@ impl MFTValue {
             };
 
             return Ok(MFTValue::StdInfo(info));
+        } else if attr_type == 0x20 {
+            let attrlist = match Value20_AttributeList::parse(bs, ntfs, is_nonresident) {
+                Ok(o) => o,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+
+            return Ok(MFTValue::AttrList(attrlist));
         } else if attr_type == 0x30 {
             let name = match Value30_FileName::parse(bs) {
                 Ok(o) => o,
@@ -596,8 +705,44 @@ impl Value10_StandardInfomation {
 }
 
 impl Value20_AttributeList {
-    pub fn parse(bs: Bytes, ntfs: &Ntfs) -> Self {
-        unimplemented!()
+    pub fn init(&mut self) -> bool {
+        true
+    }
+
+    pub fn parse(bs: Bytes, ntfs: &Ntfs, is_nonresident: bool) -> Result<Self, MRError> {
+        if is_nonresident == false {
+            let mut i = 0;
+            let mut list = vec![];
+            while i < bs.len() {
+                let attribute_type = (&bs[i..i + 4]).get_u32_le();
+                let size = (&bs[i + 4..i + 6]).get_u16_le();
+                let name_size = (&bs[i + 6..i + 7]).get_u8();
+                let name_offset = (&bs[i + 7..i + 8]).get_u8();
+                let data_vcn = (&bs[i + 8..i + 16]).get_u64_le();
+                let file_reference = FileReference::parse(bs.slice(i + 16..i + 24));
+                let attribute_identifier = (&bs[i + 24..i + 26]).get_u16_le();
+                let name = vec_u8_to_utf16string(
+                    &bs.slice(i+name_offset as usize..i+name_offset as usize + 2*name_size as usize)
+                        .to_vec(),
+                );
+                i += size as usize;
+                let v20 = V20Attr {
+                    attribute_type,
+                    size,
+                    name_size,
+                    name_offset,
+                    data_vcn,
+                    file_reference,
+                    attribute_identifier,
+                    name,
+                };
+                list.push(v20);
+            }
+
+            return Ok(Self { list: Some(list) });
+        }
+        
+        Ok(Self { list: None })
     }
 }
 
@@ -699,16 +844,17 @@ impl Value80_Data {
         ntfs: &Ntfs,
         is_nonresident: bool,
         base: u64,
-        common: &CCommon,
+        common: &CCommon
     ) -> Result<Self, MRError> {
         if is_nonresident == false {
             let offset = common.get_data_offset() as u64;
             let filesize = common.get_data_size() as u64;
+            
             return Ok(Self {
                 datas: vec![DataDescriptor {
                     datasize: filesize,
                     start_addr: base as u64 + offset,
-                }],
+                }]
             });
         }
 
@@ -729,9 +875,10 @@ impl Value80_Data {
             {
                 Some(s) => s,
                 None => {
-                    return Err(MRError::new(
-                        "too many bytes in Value80_Data::new get filesize",
-                    ));
+                    break;
+                    // return Err(MRError::new(
+                    //     "too many bytes in Value80_Data::new get filesize",
+                    // ));
                 }
             };
 
@@ -750,10 +897,10 @@ impl Value80_Data {
 
             index += filesize_len as usize + start_addr_len as usize + 1;
 
-            if (offset & (1 << (start_addr_len*8 - 1))) != 0 {
+            if ((start_addr_len != 0) && (offset & (1 << (start_addr_len * 8 - 1))) != 0) {
                 let mut i = start_addr_len;
                 while i < 8 {
-                    offset |= 0xff << (i*8);
+                    offset |= 0xff << (i * 8);
                     i += 1;
                 }
                 let _t: u128 = cluster_number as u128 + offset as u128;
@@ -768,7 +915,7 @@ impl Value80_Data {
                 datasize: filesize * ntfs.get_cluster_size(),
                 start_addr: offset,
             };
-            
+
             if cluster_number
                 .checked_mul(ntfs.get_cluster_size())
                 .is_none()
@@ -1180,7 +1327,9 @@ impl MFTAttribute {
         let data_flags = (&bs[offset + 12..offset + 14]).get_u16_le();
         let attr_id = (&bs[offset + 14..offset + 16]).get_u16_le();
         let attr_name =
-            bs.slice((name_offset as usize)..((name_offset as u64 + name_length as u64) as usize));
+            bs.slice((offset + name_offset as usize)..((offset + name_offset as usize + 2*name_length as usize) as usize));
+        let attr_name = vec_u8_to_utf16string(&attr_name.to_vec());
+        
         let common: CCommon;
         let base: usize;
         if non_resident_flag == 1 {
@@ -1203,6 +1352,7 @@ impl MFTAttribute {
             } else {
                 is_nonresident = false;
             }
+
             value = match MFTValue::parse(
                 attr_type,
                 bs.slice(offset + base..offset + size as usize),
@@ -1210,7 +1360,7 @@ impl MFTAttribute {
                 index,
                 is_nonresident,
                 base_addr,
-                &common,
+                &common
             ) {
                 Ok(o) => o,
                 Err(e) => {
@@ -1229,7 +1379,7 @@ impl MFTAttribute {
             identity: attr_id,
             common: common,
             value: value,
-            attr_name: vec_u8_to_utf16string(&attr_name.to_vec()),
+            attr_name: attr_name,
         })
     }
 

@@ -238,7 +238,7 @@ impl NtfsModule {
             match_type = MatchType::Regex;
         } else {
             return Err(MRError::new(
-                "Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16",
+                "Not support type: hex, base64, file, string, regex, regex_bytes, regex_utf16, u16string",
             ));
         }
         let read_size = self.ntfs.get_cluster_size() as usize * 0x1000;

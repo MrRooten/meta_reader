@@ -391,10 +391,11 @@ fn main() {
         }
     } else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        let file = ntfs.get_mft_by_path("\\$Extend").unwrap();
-        let subs = file.get_sub_files().unwrap();
-        for sub in subs {
-            println!("{} {}", sub.get_index(), sub.get_name());
+        //let b = ntfs.get_mft_entry_by_index(516778);
+        let mut file = ntfs.get_usn_journal().unwrap();
+        let a = file.read_n_entry(10).unwrap();
+        for i in a {
+            println!("{:?}",i);
         }
     } else if args[1].eq("alias") {
     } else {

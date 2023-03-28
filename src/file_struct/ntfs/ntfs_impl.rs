@@ -8,7 +8,7 @@ use crate::utils::{
     MRError,
 };
 
-use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs};
+use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs, USNChangeJournal, Value20_AttributeList};
 
 impl Ntfs {
     pub fn open(img: &str) -> Result<Ntfs, MRError> {
@@ -91,7 +91,37 @@ impl Ntfs {
         &self.datas_of_mft
     }
 
-    
+    pub fn get_usn_journal(&mut self) -> Result<USNChangeJournal, MRError> {
+        let usn_jrnl = match self.get_mft_by_path("\\$Extend\\$UsnJrnl") {
+            Ok(o) => o,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        // let chains = i_to_m(usn_jrnl.map_attr_chains.get(&0x20).unwrap());
+        // for attr in chains {
+        //     if let MFTValue::AttrList(s) = &mut attr.value {
+        //         s.init();
+        //         if let Some(list) = &s.list {
+        //             for v20a in list {
+        //                 if v20a.name.contains("$J") {
+        //                     let j_index = v20a.file_reference.mft_index;
+        //                     let j_data = match self.get_mft_entry_by_index(j_index) {
+        //                         Some(o) => o,
+        //                         None => {
+        //                             return Err(MRError::new("not fount usn jrnl data: get_mft_entry_by_index"));
+        //                         }
+        //                     };
+        //                     //unimplemented!();
+        //                     return USNChangeJournal::from_mft(j_data);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+        return USNChangeJournal::from_mft(usn_jrnl, self);
+    }
 
     
 
@@ -259,6 +289,7 @@ impl Ntfs {
                     return None;
                 }
             };
+
             let entry = MFTEntry::parse(Bytes::from(mft_bs), self, offset as u64, index);
             match entry {
                 Ok(o) => {

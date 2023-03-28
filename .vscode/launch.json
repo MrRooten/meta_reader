@@ -38,7 +38,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["ext4","/dev/sdb","list_deleted_files","path=/"],
+            "args": ["test","\\\\.\\C:","asdf"],
             "cwd": "${workspaceFolder}"
         },
         {

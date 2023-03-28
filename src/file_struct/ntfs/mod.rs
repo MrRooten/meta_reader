@@ -74,14 +74,20 @@ pub struct Value10_StandardInfomation {
 }
 
 #[derive(Debug)]
-pub struct Value20_AttributeList {
+pub struct V20Attr {
     attribute_type      : u32,
     size                : u16,
     name_size           : u8,
     name_offset         : u8,
     data_vcn            : u64,
-    file_reference      : u64,
-    attribute_identifier: u16
+    file_reference      : FileReference,
+    attribute_identifier: u16,
+    name                : String
+}
+
+#[derive(Debug)]
+pub struct Value20_AttributeList {
+    list        : Option<Vec<V20Attr>>
 }
 
 #[derive(Debug, Clone)]
@@ -266,6 +272,12 @@ pub struct MFTAttribute {
 }
 
 #[derive(Debug)]
+pub struct MFTStream {
+    name        : String,
+    data        : Value80_Data
+}
+
+#[derive(Debug)]
 pub struct MFTEntry {
     parent_index                : i64,
     index                       : u64,
@@ -345,11 +357,13 @@ pub enum USNIdentifier {
     USN_REASON_CLOSE
 }
 
+#[derive(Debug)]
 pub struct FileReference128 {
     mft_index       : u64,
     seq_number      : u64
 }
 
+#[derive(Debug)]
 pub struct USNChangeJournalEntry {
     entry_size          : u32,
     major_version       : u16,
@@ -363,5 +377,11 @@ pub struct USNChangeJournalEntry {
     security_descriptor_id  : u32,
     file_attributes_flags   : u32,
     name_size               : u16,
-    name_offset             : u16
+    name_offset             : u16,
+    name                : String
+}
+
+pub struct USNChangeJournal  {
+    mft     : MFTEntry,
+    ntfs    : Option<*const Ntfs>
 }
