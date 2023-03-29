@@ -35,9 +35,8 @@ impl NtfsModule {
         println!("\tcreation: {:?}", mft.get_creation_time());
         println!("\taccess: {:?}", mft.get_access_time());
         println!("\tmodify: {:?}", mft.get_change_time());
-        println!("\tcreation2: {:?}", mft.filename_creation_time());
-        println!("\taccess2: {:?}", mft.filename_access_time());
-        println!("\tmodify2: {:?}", mft.filename_change_time());
+        println!("\tcreation real(from filename): {:?}", mft.filename_creation_time());
+        println!("\tstream list: {:?}", mft.get_streams_list());
         Ok(())
     }
 }

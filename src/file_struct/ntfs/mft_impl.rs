@@ -59,6 +59,22 @@ impl MFTEntry {
         return None;
     }
 
+    pub fn get_streams_list(&self) -> Option<Vec<String>> {
+        let attrs = match self.map_attr_chains.get(&0x80) {
+            Some(o) => o,
+            None => {
+                return None;
+            }
+        };
+
+        let mut result = vec![];
+        for attr in attrs {
+            result.push(attr.attr_name.to_string());
+        }
+
+        Some(result)
+    }
+
     pub fn get_flags(&self) -> u16 {
         self.entry_flags
     }
