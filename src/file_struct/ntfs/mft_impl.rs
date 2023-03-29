@@ -1,16 +1,16 @@
 use std::{collections::HashMap, fs, io::Write, mem::align_of};
 
 use bytes::{Buf, Bytes};
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 
 use crate::utils::{funcs::i_to_m, MRError};
 
 use super::{
     CCommon, CNonResident, CResident, DataDescriptor, FileItem, FileReference, FileTime,
     IndexEntryHeader, IndexNodeHeader, IndexRootHeader, IndexValue, MFTAttribute, MFTEntry,
-    MFTValue, Ntfs, V20Attr, Value10_StandardInfomation, Value20_AttributeList, Value30_FileName,
-    Value40_ObjectId, Value50_SecurityDescriptor, Value60_VolumeName, Value70_VolumeInfomation,
-    Value80_Data, Value90_IndexRoot, ValueA0_IndexAlloction, MFTStream,
+    MFTStream, MFTValue, Ntfs, V20Attr, Value10_StandardInfomation, Value20_AttributeList,
+    Value30_FileName, Value40_ObjectId, Value50_SecurityDescriptor, Value60_VolumeName,
+    Value70_VolumeInfomation, Value80_Data, Value90_IndexRoot, ValueA0_IndexAlloction,
 };
 
 pub fn long_to_short(name: &str, names: Vec<&str>) -> String {
@@ -20,8 +20,6 @@ pub fn long_to_short(name: &str, names: Vec<&str>) -> String {
 fn align(n: usize, alignment: usize) -> usize {
     (alignment - n % alignment) + n
 }
-
-
 
 impl MFTEntry {
     pub fn filename(&self) -> Option<String> {
@@ -68,7 +66,6 @@ impl MFTEntry {
     pub fn get_index(&self) -> u64 {
         self.index
     }
-
 
     pub fn get_parent_index(&self) -> i64 {
         if self.parent_index > 0 {
@@ -137,7 +134,12 @@ impl MFTEntry {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
             let time = &s.create_time;
-            let time = Local.from_local_datetime(&time.to_native_date()).unwrap();
+            let time = match time.to_native_date() {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
             return Some(time);
         }
         None
@@ -147,7 +149,12 @@ impl MFTEntry {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
             let time = &s.change_time;
-            let time = Local.from_local_datetime(&time.to_native_date()).unwrap();
+            let time = match time.to_native_date() {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
             return Some(time);
         }
         None
@@ -170,7 +177,12 @@ impl MFTEntry {
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
             let time = &s.last_visit_time;
-            let time = Local.from_local_datetime(&time.to_native_date()).unwrap();
+            let time = match time.to_native_date() {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
             return Some(time);
         }
         None
@@ -182,10 +194,14 @@ impl MFTEntry {
             if s.file_create_time.low == 0 && s.file_create_time.high == 0 {
                 return None;
             }
-            let time = Local
-                .from_local_datetime(&s.file_create_time.to_native_date())
-                .unwrap();
-            return Some(time);
+            let time = &s.file_create_time.to_native_date();
+            let time = match time {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(*time);
         }
         None
     }
@@ -196,10 +212,14 @@ impl MFTEntry {
             if s.file_change_time.low == 0 && s.file_change_time.high == 0 {
                 return None;
             }
-            let time = Local
-                .from_local_datetime(&s.file_change_time.to_native_date())
-                .unwrap();
-            return Some(time);
+            let time = &s.file_change_time.to_native_date();
+            let time = match time {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(*time);
         }
         None
     }
@@ -210,10 +230,14 @@ impl MFTEntry {
             if s.file_last_visited.low == 0 && s.file_last_visited.high == 0 {
                 return None;
             }
-            let time = Local
-                .from_local_datetime(&s.file_last_visited.to_native_date())
-                .unwrap();
-            return Some(time);
+            let time = &s.file_last_visited.to_native_date();
+            let time = match time {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(*time);
         }
         None
     }
@@ -224,10 +248,14 @@ impl MFTEntry {
             if s.mft_change_time.low == 0 && s.mft_change_time.high == 0 {
                 return None;
             }
-            let time = Local
-                .from_local_datetime(&s.mft_change_time.to_native_date())
-                .unwrap();
-            return Some(time);
+            let time = &s.mft_change_time.to_native_date();
+            let time = match time {
+                Some(s) => s,
+                None => {
+                    return None;
+                }
+            };
+            return Some(*time);
         }
         None
     }
@@ -257,7 +285,12 @@ impl MFTEntry {
         unimplemented!()
     }
 
-    pub fn read_n_in_stream(&self, addr: usize, n: usize, stream: &str) -> Result<Vec<u8>, MRError> {
+    pub fn read_n_in_stream(
+        &self,
+        addr: usize,
+        n: usize,
+        stream: &str,
+    ) -> Result<Vec<u8>, MRError> {
         let datas = match self.get_stream(stream) {
             Some(s) => s,
             None => {
@@ -291,8 +324,7 @@ impl MFTEntry {
                 .unwrap();
             buffer_data = tmp_data[__offset as usize..].to_vec();
 
-            if last_addr < buffer_data.len() as u64
-                && last_n > buffer_data.len() as u64 - last_addr
+            if last_addr < buffer_data.len() as u64 && last_n > buffer_data.len() as u64 - last_addr
             {
                 // let bs = ntfs
                 //     .reader
@@ -301,8 +333,7 @@ impl MFTEntry {
                 //         (data.datasize - last_addr) as usize,
                 //     )
                 //     .unwrap();
-                let bs =
-                    buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
+                let bs = buffer_data[(last_addr) as usize..(data.datasize) as usize].to_vec();
                 result.extend(bs);
                 last_n -= data.datasize - last_addr;
                 last_addr = 0;
@@ -317,8 +348,7 @@ impl MFTEntry {
                 //     .reader
                 //     .read_n((data.start_addr + last_addr) as usize, (last_n) as usize)
                 //     .unwrap();
-                let bs = buffer_data[(last_addr) as usize..(last_addr + last_n) as usize]
-                    .to_vec();
+                let bs = buffer_data[(last_addr) as usize..(last_addr + last_n) as usize].to_vec();
                 result.extend(bs);
                 break;
             }
@@ -575,7 +605,7 @@ impl MFTValue {
         index: u64,
         is_nonresident: bool,
         base: u64,
-        common: &CCommon
+        common: &CCommon,
     ) -> Result<MFTValue, MRError> {
         if attr_type == 0x10 {
             let info = match Value10_StandardInfomation::parse(bs, ntfs, index) {
@@ -604,7 +634,7 @@ impl MFTValue {
             };
             return Ok(MFTValue::FileName(name));
         } else if attr_type == 0x80 {
-            let data = match Value80_Data::parse(bs, ntfs, is_nonresident, base, common) {
+            let data = match Value80_Data::parse(index, bs, ntfs, is_nonresident, base, common) {
                 Ok(o) => o,
                 Err(e) => {
                     return Err(e);
@@ -650,9 +680,18 @@ impl FileTime {
         let s = t / 10000000;
         return s - 11644473600;
     }
-    pub fn to_native_date(&self) -> NaiveDateTime {
+    pub fn to_native_date(&self) -> Option<DateTime<Local>> {
         let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
-        NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap()
+        //NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap();
+
+        let datetime_utc = match Utc.timestamp_opt(self.to_seconds(t) as i64, 0) {
+            chrono::LocalResult::None => return None,
+            chrono::LocalResult::Single(s) => s,
+            chrono::LocalResult::Ambiguous(_, _) => return None,
+        };
+
+        let datetime_local = datetime_utc.with_timezone(&chrono::Local);
+        Some(datetime_local)
     }
 }
 
@@ -722,8 +761,10 @@ impl Value20_AttributeList {
                 let file_reference = FileReference::parse(bs.slice(i + 16..i + 24));
                 let attribute_identifier = (&bs[i + 24..i + 26]).get_u16_le();
                 let name = vec_u8_to_utf16string(
-                    &bs.slice(i+name_offset as usize..i+name_offset as usize + 2*name_size as usize)
-                        .to_vec(),
+                    &bs.slice(
+                        i + name_offset as usize..i + name_offset as usize + 2 * name_size as usize,
+                    )
+                    .to_vec(),
                 );
                 i += size as usize;
                 let v20 = V20Attr {
@@ -741,7 +782,7 @@ impl Value20_AttributeList {
 
             return Ok(Self { list: Some(list) });
         }
-        
+
         Ok(Self { list: None })
     }
 }
@@ -840,21 +881,22 @@ impl Value80_Data {
         return &self.datas;
     }
     pub fn parse(
+        index: u64,
         bs: Bytes,
         ntfs: &Ntfs,
         is_nonresident: bool,
         base: u64,
-        common: &CCommon
+        common: &CCommon,
     ) -> Result<Self, MRError> {
         if is_nonresident == false {
             let offset = common.get_data_offset() as u64;
             let filesize = common.get_data_size() as u64;
-            
+
             return Ok(Self {
                 datas: vec![DataDescriptor {
                     datasize: filesize,
                     start_addr: base as u64 + offset,
-                }]
+                }],
             });
         }
 
@@ -864,33 +906,36 @@ impl Value80_Data {
         while index < bs.len() {
             let len = (&bs[index..1 + index]).get_u8();
             let filesize_len = len % 16;
+            let start_addr_len = len / 16;
             if filesize_len == 0 {
                 break;
             }
-            let start_addr_len = len / 16;
+
             if index + 1 + filesize_len as usize > bs.len() {
+                fs::write("./error_data80", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
             let filesize = match get_le_u64(bs.slice(index + 1..index + 1 + filesize_len as usize))
             {
                 Some(s) => s,
                 None => {
-                    break;
-                    // return Err(MRError::new(
-                    //     "too many bytes in Value80_Data::new get filesize",
-                    // ));
+                    //break;
+                    fs::write("./error_data80", bs.to_vec());
+                    return Err(MRError::new(
+                        "too many bytes in Value80_Data::new get filesize",
+                    ));
                 }
             };
 
             let _s = (index + 1 + filesize_len as usize);
             if _s + start_addr_len as usize > bs.len() {
-                fs::write("./target/dump", bs.to_vec());
+                fs::write("./error_data80", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
             let mut offset = match get_le_u64(bs.slice(_s.._s + start_addr_len as usize)) {
                 Some(o) => o,
                 None => {
-                    fs::write("./target/dump", bs.to_vec());
+                    fs::write("./error_data80", bs.to_vec());
                     return Err(MRError::new(
                         "too many bytes in Value80_Data::new get offset",
                     ));
@@ -911,7 +956,7 @@ impl Value80_Data {
                 cluster_number += offset;
             }
             if filesize.checked_mul(ntfs.get_cluster_size()).is_none() {
-                fs::write("./target/dump", bs.to_vec());
+                fs::write("./error_data80", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new filesize overflow"));
             }
             let data = DataDescriptor {
@@ -1330,10 +1375,12 @@ impl MFTAttribute {
         let name_offset = (&bs[offset + 10..offset + 12]).get_u16_le();
         let data_flags = (&bs[offset + 12..offset + 14]).get_u16_le();
         let attr_id = (&bs[offset + 14..offset + 16]).get_u16_le();
-        let attr_name =
-            bs.slice((offset + name_offset as usize)..((offset + name_offset as usize + 2*name_length as usize) as usize));
+        let attr_name = bs.slice(
+            (offset + name_offset as usize)
+                ..((offset + name_offset as usize + 2 * name_length as usize) as usize),
+        );
         let attr_name = vec_u8_to_utf16string(&attr_name.to_vec());
-        
+
         let common: CCommon;
         let base: usize;
         if non_resident_flag == 1 {
@@ -1364,10 +1411,11 @@ impl MFTAttribute {
                 index,
                 is_nonresident,
                 base_addr,
-                &common
+                &common,
             ) {
                 Ok(o) => o,
                 Err(e) => {
+                    fs::write("./error_value", bs.to_vec());
                     return Err(e);
                 }
             };

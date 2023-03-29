@@ -393,10 +393,10 @@ fn main() {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
         //let b = ntfs.get_mft_entry_by_index(516778);
         let mut file = ntfs.get_usn_journal().unwrap();
-        let a = file.read_n_entry(100000).unwrap();
-        for i in a {
-            println!("{} {}",i.filename(), i.filetime());
-        }
+        file.process_last(|entry| -> bool {
+            println!("{} {:?} {}",entry.filename(), entry.filetime(), entry.get_update_reason());
+            true
+        });
     } else if args[1].eq("alias") {
     } else {
         println!(
