@@ -28,6 +28,10 @@ impl USNChangeJournalEntry {
         }
     }
 
+    pub fn get_index(&self) -> u64 {
+        self.reference.mft_index
+    }
+
     pub fn filename(&self) -> &String {
         &self.name
     }
@@ -280,8 +284,12 @@ impl USNChangeJournal {
                     return Err(MRError::new("Not found $J Stream, File"));
                 }
             };
-
-            data_runs = stream.datas[1..].to_vec();
+            if stream.datas[0].start_addr == 0 {
+                data_runs = stream.datas[1..].to_vec();
+            } else {
+                data_runs = stream.datas.to_vec();
+            }
+            
         }
 
         Ok(data_runs)
@@ -299,6 +307,9 @@ impl USNChangeJournal {
         let ntfs = unsafe { &*self.ntfs.unwrap() };
 
         for data in data_runs {
+            if data.datasize > 20*1024*1024 {
+                continue;
+            }
             let tmp_data = ntfs
                 .reader
                 .read_n(data.start_addr as usize, data.datasize as usize)

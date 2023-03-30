@@ -212,7 +212,12 @@ fn main() {
             program_name,
             "e4sdf".bright_red()
         );
+    } else if args[1].eq("test") {
+
     } else {
+        if args.len() < 4 {
+            return ;
+        }
         function = (&args[3]).to_string();
         if args.len() >= 5 {
             let options = args[4].split(",");
@@ -375,6 +380,7 @@ fn main() {
             println!("\t${{ntfs_file}} stat path=${{target_dir}}");
             println!("\t${{ntfs_file}} deleted_files path=${{target_dir}}");
             println!("\t${{ntfs_file}} search_disk encode=${{default:hex,base64,file,string,regex,regex_bytes,regex_utf16}},to_search=${{value}}");
+            println!("\t${{ntfs_file}} dump_usn 'path=${{path}}'");
             return;
         }
         let img = &args[2];
@@ -388,6 +394,8 @@ fn main() {
             if let Err(e) = module.search_disk(_f_args) {
                 println!("[Error]:{}", e);
             }
+        } else if function.eq("dump_usn") {
+            module.dump_usn(_f_args).unwrap();
         }
     } else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();

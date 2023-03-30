@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, io::Write, mem::align_of};
+use std::{collections::HashMap, fs, io::Write, mem::align_of, panic};
 
 use bytes::{Buf, Bytes};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
@@ -692,21 +692,36 @@ impl FileTime {
             high: high,
         }
     }
-    fn to_seconds(&self, t: u64) -> u64 {
+    fn to_seconds(&self, t: u64) -> Option<u64> {
         let s = t / 10000000;
-        return s - 11644473600;
+        if s < 11644473600 {
+            return None;
+        }
+        return Some(s - 11644473600);
     }
     pub fn to_native_date(&self) -> Option<DateTime<Local>> {
         let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
         //NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap();
-
-        let datetime_utc = match Utc.timestamp_opt(self.to_seconds(t) as i64, 0) {
+        let timestamp = match self.to_seconds(t) {
+            Some(s) => s,
+            None => {
+                return None;
+            }
+        };
+        let datetime_utc = match Utc.timestamp_opt(timestamp as i64, 0) {
             chrono::LocalResult::None => return None,
             chrono::LocalResult::Single(s) => s,
             chrono::LocalResult::Ambiguous(_, _) => return None,
         };
-
-        let datetime_local = datetime_utc.with_timezone(&chrono::Local);
+        let prev_hook = panic::take_hook();
+        panic::set_hook(Box::new(|_| {}));
+        let datetime_local = match std::panic::catch_unwind(|| datetime_utc.with_timezone(&chrono::Local)) {
+            Ok(o) => o,
+            Err(_) =>  {
+                return None;
+            },
+        };
+        panic::set_hook(prev_hook);
         Some(datetime_local)
     }
 }

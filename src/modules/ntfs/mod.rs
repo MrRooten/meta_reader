@@ -6,6 +6,7 @@ pub mod stat;
 pub mod deleted_files;
 pub mod search_disk;
 pub mod search_files_content;
+pub mod dump_usn;
 pub struct NtfsModule {
     ntfs    : Ntfs,
     file    : String,
