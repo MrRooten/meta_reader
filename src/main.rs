@@ -3,6 +3,7 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use bytes::Bytes;
+use chrono::{Utc, TimeZone};
 use colored::{Colorize, ColoredString};
 use meta_reader::{
     file_struct::{
@@ -400,11 +401,15 @@ fn main() {
     } else if args[1].eq("test") {
         let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
         //let b = ntfs.get_mft_entry_by_index(516778);
-        let mut file = ntfs.get_usn_journal().unwrap();
-        file.process_last(|entry| -> bool {
-            println!("{} {:?} {}",entry.filename(), entry.filetime(), entry.get_update_reason());
-            true
-        });
+        let t = 1680078256;
+
+        let datetime_utc = match Utc.timestamp_opt(t as i64, 0) {
+            chrono::LocalResult::None => {return ;},
+            chrono::LocalResult::Single(s) => s,
+            chrono::LocalResult::Ambiguous(_, _) => {return ;},
+        };
+
+        println!("{}", datetime_utc.to_string());
     } else if args[1].eq("alias") {
     } else {
         println!(

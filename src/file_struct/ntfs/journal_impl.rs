@@ -21,10 +21,18 @@ macro_rules! hashmap {
     }}
 }
 impl USNChangeJournalEntry {
-    pub fn filetime(&self) -> Option<String> {
+    pub fn filetime(&self) -> Option<&FileTime> {
+        Some(&self.update_date)
+    }
+
+    pub fn get_time_string(&self) -> Option<String> {
         match self.update_date.to_native_date() {
-            Some(s) => Some(s.to_string()),
-            None => None
+            Some(s) => {
+                Some(s.to_string())
+            },
+            None => {
+                None
+            }
         }
     }
 
@@ -34,6 +42,10 @@ impl USNChangeJournalEntry {
 
     pub fn filename(&self) -> &String {
         &self.name
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        self.update_date.get_timestamp()
     }
 
     pub fn get_update_reason(&self) -> String {
@@ -213,9 +225,9 @@ impl USNChangeJournal {
                 continue;
             }
 
-            // if offset + entry_size as usize > bs.len() {
-            //     break;
-            // }
+            if offset + entry_size as usize > bs.len() {
+                break;
+            }
             let v = USNChangeJournalEntry::parse(bs.slice(offset..offset + entry_size as usize));
             let v = match v {
                 Ok(o) => o,

@@ -32,6 +32,7 @@ impl NtfsModule {
         
         println!("filename: {:?}",mft.filename());
         println!("\tindex: {:?}", mft.get_index());
+        println!("\tfullpath: {:?}", mft.fullpath());
         println!("\tcreation: {:?}", mft.get_creation_time());
         println!("\taccess: {:?}", mft.get_access_time());
         println!("\tmodify: {:?}", mft.get_change_time());

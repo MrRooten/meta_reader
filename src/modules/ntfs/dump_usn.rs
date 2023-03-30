@@ -17,7 +17,7 @@ impl NtfsModule {
         let mut journal = self.ntfs.get_usn_journal().unwrap();
         let mut out_file = fs::File::create(out).unwrap();
         journal.process_entry(|entry| -> bool {
-            let line = format!("{}:{} {:?} {}\n", entry.get_index(), entry.filename(), entry.filetime(), entry.get_update_reason());
+            let line = format!("{}:{} {:?} {}\n", entry.get_index(), entry.filename(), entry.get_time_string(), entry.get_update_reason());
             out_file.write(line.as_bytes());
             true
         });

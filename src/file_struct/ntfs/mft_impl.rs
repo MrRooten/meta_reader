@@ -685,7 +685,7 @@ impl MFTValue {
 
 impl FileTime {
     pub fn parse_from_u64(s: u64) -> Self {
-        let low = ((s / (2 << 32)) as u32).swap_bytes();
+        let low = ((s >> 32) as u32).swap_bytes();
         let high = ((s % (2 << 32)) as u32).swap_bytes();
         Self {
             low: low,
@@ -698,6 +698,13 @@ impl FileTime {
             return None;
         }
         return Some(s - 11644473600);
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
+        //NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap();
+        let timestamp = self.to_seconds(t).unwrap();
+        timestamp
     }
     pub fn to_native_date(&self) -> Option<DateTime<Local>> {
         let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
@@ -938,10 +945,14 @@ impl Value80_Data {
             let len = (&bs[index..1 + index]).get_u8();
             let filesize_len = len % 16;
             let start_addr_len = len / 16;
-            if filesize_len == 0 {
+            if filesize_len == 0 && start_addr_len == 0{
                 break;
             }
 
+            // if filesize_len > 6 || start_addr_len > 6 {
+            //     index += filesize_len as usize + start_addr_len as usize + 1;
+            //     continue;
+            // }
             if index + 1 + filesize_len as usize > bs.len() {
                 fs::write("./error_data80", bs.to_vec());
                 return Err(MRError::new("Value80_Data::new data not enough"));
