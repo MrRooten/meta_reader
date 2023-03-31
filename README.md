@@ -22,6 +22,15 @@ Update log:
  · Beta：指定二进制数据搜索磁盘功能
 
 NTFS功能(处理本地磁盘需要管理员权限)
+DUMP USN日志
+默认会dump到当前目录的usn_log.txt，可以在后面添加'out=${path}'参数来指定文件
+
+PS:目前的LOG有可能不会记录在程序运行时的文件，有可能是NTFS在写Journal时造成的问题目前没弄清楚
+
+PS2: 根据测试，我的电脑因为需要经常编译程序会触发的日志较多，可以保存到最多前一天的记录，如果操作不频繁的电脑应该可以保存相对多天数的日志
+![image](https://user-images.githubusercontent.com/25635931/229054812-4fc45118-967e-40ed-8757-ac611ac7dc63.png)
+![image](https://user-images.githubusercontent.com/25635931/229054860-12af5546-098f-4fe6-9fa4-dfb0abf64eb7.png)
+
 搜索删除文件功能
 参数:
 
