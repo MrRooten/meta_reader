@@ -28,3 +28,10 @@ impl NtfsModule {
         })
     }
 }
+
+#[derive(PartialEq)]
+pub enum MatchType {
+    Equal,
+    Regex,
+    RegexUtf16,
+}

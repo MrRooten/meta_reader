@@ -2,9 +2,9 @@ use std::{collections::HashMap, fmt::Write};
 
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
-use crate::{modules::ntfs::search_disk::sec_to_s, utils::MRError};
+use crate::{modules::ntfs::{search_disk::sec_to_s, MatchType}, utils::MRError};
 
-use super::{search_disk::MatchType, NtfsModule};
+use super::NtfsModule;
 
 impl NtfsModule {
     pub fn search_files_content(&mut self, args: HashMap<String, String>) -> Result<(), MRError> {

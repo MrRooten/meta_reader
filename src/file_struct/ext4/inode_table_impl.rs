@@ -21,6 +21,10 @@ impl Extent {
     pub fn get_start(&self) -> usize {
         ((self.ee_start_hi as usize) << 32) + self.ee_start_lo as usize
     }
+
+    pub fn get_len(&self) -> usize {
+        self.ee_len as usize
+    }
 }
 
 impl ExtentIdx {

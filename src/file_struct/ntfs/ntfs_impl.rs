@@ -80,14 +80,15 @@ impl Ntfs {
 
         let offset = self.get_mft_offset() as usize;
         let bs = self.reader.read_n(offset, self.get_mft_size()).unwrap();
-        // let mut f = fs::File::create("./target/test.bin").unwrap();
-        // f.write_all(&bs);
         let mft = MFTEntry::parse(Bytes::from(bs), self, offset as u64, 0).unwrap();
-        let data_values = mft.map_attr_chains.get(&0x80).unwrap().first().unwrap();
-        let _t = &data_values.value;
-        if let MFTValue::Data(data) = _t {
-            self.datas_of_mft = data.datas.clone();
+        let datas_values = mft.map_attr_chains.get(&0x80).unwrap();
+        for data_values in datas_values {
+            let _t = &data_values.value;
+            if let MFTValue::Data(data) = _t {
+                self.datas_of_mft.extend(data.datas.clone());
+            }
         }
+        
         &self.datas_of_mft
     }
 

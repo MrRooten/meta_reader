@@ -55,6 +55,10 @@ impl Ext4 {
         }
     }
 
+    pub fn get_datas_of_inodes(&self) {
+        
+    }
+
     pub fn get_super_block(&self) -> Result<&SuperBlock,MRError> {
         if self.super_block.is_some() {
             match &self.super_block {
@@ -172,6 +176,52 @@ impl Ext4 {
 
     pub fn get_s_inode_size(&self) -> u16 {
         self.get_super_block().unwrap().s_inode_size
+    }
+
+    pub fn iter_inodes<F>(&self, mut f: F) 
+    where F: FnMut(u32, &Inode, u32)
+    {
+        let descs = self.get_descs().unwrap();
+        let num_inodes = self.get_s_inodes_per_group();
+        let mut id = 0;
+        let all_inodes_num = num_inodes * descs.len() as u32;
+        let mut count = 0;
+        for desc in descs {
+            count += 1;
+            if count == descs.len() - 1 {
+                break;
+            }
+            let inode_offset = desc.get_inode_table() as usize * self.get_block_size();
+            let inode_len = num_inodes * 0x100;
+            //let read_size = 0x1000 * 0x1000;
+
+            let mut _i = 0;
+            let bs = self.reader.read_n(inode_offset, inode_len as usize).unwrap();
+            let bs = Bytes::from(bs);
+           
+            while _i < num_inodes {
+                let mut _offset = _i as usize * 0x100;
+                
+                let inode = Inode::parse(&bs.slice(_offset.._offset+0x100), self, inode_offset as u64 + _offset as u64);
+                f(id, &inode, all_inodes_num);
+                id += 1;
+                _i += 1;
+                
+            }
+            
+        }
+        // while id < all_inodes_num {
+        //     let inode = match self.get_inode_by_id(id) {
+        //         Ok(o) => o,
+        //         Err(e) => {
+        //             id += 1;
+        //             continue;
+        //         }
+        //     };
+
+        //     f(id, &inode, all_inodes_num);
+        //     id += 1;
+        // }
     }
 
     pub fn get_inode_by_id(&self, id: u32) -> Result<Inode, MRError> {

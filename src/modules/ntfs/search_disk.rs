@@ -11,7 +11,7 @@ use crate::{
     utils::{funcs::i_to_m, MRError},
 };
 
-use super::NtfsModule;
+use super::{NtfsModule, MatchType};
 use memchr::memmem;
 pub fn hex_to_vec_u8(s: &str) -> Result<Vec<u8>, ParseIntError> {
     (0..s.len())
@@ -48,12 +48,7 @@ fn ref_file(mfts: &Vec<(Range<usize>, u64)>, ntfs: &mut Ntfs, offset: u64, drive
     format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red()
 }
 
-#[derive(PartialEq)]
-pub enum MatchType {
-    Equal,
-    Regex,
-    RegexUtf16,
-}
+
 
 fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
     let title: Vec<u16> = bytes
@@ -79,9 +74,6 @@ where
     F: FnMut(u64, &MFTEntry) -> bool,
 {
     let mut result = Vec::new();
-    if result.len() > 0 {
-        return result;
-    }
     let mut cache = Vec::new();
     ntfs.iter_mft(|index, entry, is_deleted, ntfs| {
         let entry = match entry {
