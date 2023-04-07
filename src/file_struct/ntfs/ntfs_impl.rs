@@ -88,7 +88,11 @@ impl Ntfs {
                 self.datas_of_mft.extend(data.datas.clone());
             }
         }
-        
+        // let data_values = mft.map_attr_chains.get(&0x80).unwrap().first().unwrap();
+        // let _t = &data_values.value;
+        // if let MFTValue::Data(data) = _t {
+        //     self.datas_of_mft = data.datas.clone();
+        // }
         &self.datas_of_mft
     }
 

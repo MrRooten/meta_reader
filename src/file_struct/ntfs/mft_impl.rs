@@ -798,6 +798,21 @@ impl Value20_AttributeList {
                 let data_vcn = (&bs[i + 8..i + 16]).get_u64_le();
                 let file_reference = FileReference::parse(bs.slice(i + 16..i + 24));
                 let attribute_identifier = (&bs[i + 24..i + 26]).get_u16_le();
+                if i + name_offset as usize + 2 * name_size as usize > bs.len() {
+                    i += size as usize;
+                    let v20 = V20Attr {
+                        attribute_type,
+                        size,
+                        name_size,
+                        name_offset,
+                        data_vcn,
+                        file_reference,
+                        attribute_identifier,
+                        name: String::new(),
+                    };
+                    list.push(v20);
+                    continue;
+                }
                 let name = vec_u8_to_utf16string(
                     &bs.slice(
                         i + name_offset as usize..i + name_offset as usize + 2 * name_size as usize,
