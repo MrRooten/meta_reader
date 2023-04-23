@@ -11,7 +11,7 @@ use meta_reader::{
         ext4::{Ext4, FileType, Inode},
         ntfs::Ntfs,
     },
-    modules::{ext4::Ext4Module, ntfs::NtfsModule},
+    modules::{ext4::Ext4Module, ntfs::NtfsModule, cmd::cmd_prcess},
     utils::{file::filesize_to_human_string, funcs::i_to_m},
 };
 
@@ -401,17 +401,7 @@ fn main() {
             module.dump_usn(_f_args).unwrap();
         }
     } else if args[1].eq("test") {
-        let mut ntfs = Ntfs::open("\\\\.\\C:").unwrap();
-        //let b = ntfs.get_mft_entry_by_index(516778);
-        let t = 1680078256;
-
-        let datetime_utc = match Utc.timestamp_opt(t as i64, 0) {
-            chrono::LocalResult::None => {return ;},
-            chrono::LocalResult::Single(s) => s,
-            chrono::LocalResult::Ambiguous(_, _) => {return ;},
-        };
-
-        println!("{}", datetime_utc.to_string());
+        cmd_prcess();
     } else if args[1].eq("alias") {
     } else {
         println!(
