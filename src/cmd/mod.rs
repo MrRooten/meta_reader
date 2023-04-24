@@ -1,5 +1,6 @@
 pub mod handler;
-
+pub mod evidence;
+pub mod commands;
 use std::borrow::Cow::{self, Borrowed, Owned};
 
 use colored::Colorize;
@@ -94,6 +95,7 @@ pub fn cmd_prcess() -> rustyline::Result<()> {
         colored_prompt: "".to_owned(),
         validator: MatchingBracketValidator::new(),
     };
+    let handler = CMDHandler::get_handler();
     let mut rl = Editor::with_config(config)?;
     rl.set_helper(Some(h));
     rl.bind_sequence(KeyEvent::alt('n'), Cmd::HistorySearchForward);

@@ -4,7 +4,6 @@ use crate::utils::MRError;
 
 pub mod ext4;
 pub mod ntfs;
-pub mod cmd;
 pub trait Hanlder {
     fn run(&self, args: HashMap<String, String>) -> Result<(), MRError>;
 

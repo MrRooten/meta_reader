@@ -11,8 +11,8 @@ use meta_reader::{
         ext4::{Ext4, FileType, Inode},
         ntfs::Ntfs,
     },
-    modules::{ext4::Ext4Module, ntfs::NtfsModule, cmd::cmd_prcess},
-    utils::{file::filesize_to_human_string, funcs::i_to_m},
+    modules::{ext4::Ext4Module, ntfs::NtfsModule},
+    utils::{file::filesize_to_human_string, funcs::i_to_m}, cmd::cmd_prcess,
 };
 
 static mut PASSWD: Option<HashMap<u16, String>> = None;
