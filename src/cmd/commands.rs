@@ -14,6 +14,24 @@ pub trait Command {
     fn info(&self) -> String;
 }
 
+pub type Commands = Vec<Box<dyn Command>>;
+pub struct CmdMgr {
+    cmds    : Commands
+}
+
+impl CmdMgr {
+    pub fn new() -> CmdMgr {
+        let mut result = Vec::<Box<dyn Command>>::new();
+        CmdMgr { cmds: result }
+    }
+
+    pub fn get_procs(&self) -> &Commands{
+        &self.cmds
+    }
+
+    
+}
+
 pub struct Exit {
 
 }
