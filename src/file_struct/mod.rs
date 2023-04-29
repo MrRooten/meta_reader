@@ -5,3 +5,4 @@ pub mod pe;
 pub mod ext4;
 pub mod ntfs;
 pub mod xfs;
+pub mod windows;

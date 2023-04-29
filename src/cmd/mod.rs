@@ -2,6 +2,7 @@ pub mod handler;
 pub mod evidence;
 pub mod commands;
 use std::borrow::Cow::{self, Borrowed, Owned};
+use std::process;
 
 use colored::Colorize;
 use rustyline::completion::{Completer};
@@ -124,7 +125,14 @@ pub fn cmd_prcess() -> rustyline::Result<()> {
                     }
 
                 }
-                println!("{}", line);
+
+                if line.eq("exit") {
+                    process::exit(0);
+                }
+                let result = handler.process(&line);
+                if let Err(e) = result {
+                    println!("[{}] {}", "Error".red(), e);
+                }
             }
             Err(ReadlineError::Interrupted) => {
                 println!("Please use exit command to exit");
