@@ -97,9 +97,10 @@ pub struct HiveBinCell {
 }
 
 pub struct HiveBin {
-    sign                : [u8;4],
+    sign                : Vec<u8>,
     offset              : u32,
     size                : u32,
+    offset_of_file      : u32 
 }
 
 pub struct RegFileHeader {

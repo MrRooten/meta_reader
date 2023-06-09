@@ -2,7 +2,38 @@ use bytes::{Bytes, Buf};
 
 use crate::utils::{MRError, file::MRFile};
 
-use super::{RegFile, RegFileHeader};
+use super::{RegFile, RegFileHeader, HiveBin, HiveBinCell};
+
+impl HiveBinCell {
+    pub fn new(file: &MRFile, offset: u32) -> Result<HiveBinCell, MRError> {
+        unimplemented!()
+    }
+}
+
+impl HiveBin {
+    pub fn new(file: &MRFile, offset: u32) -> Result<HiveBin, MRError> {
+        let bs = match file.read_n(offset as usize, 32) {
+            Ok(o) => o, 
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        let bs = Bytes::from(bs);
+        let sign = bs[0..4].to_vec();
+        if String::from_utf8_lossy(&sign).eq("hbin") == false {
+            return Err(MRError::new("Not a valid Hive bin"));
+        }
+        let offset = (&bs[4..8]).get_u32_le();
+        let size = (&bs[8..12]).get_u32_le();
+        let offset_of_start = offset;
+        Ok(Self {
+            sign,
+            offset,
+            size,
+            offset_of_file: offset_of_start,
+        })
+    }
+}
 
 impl RegFileHeader {
     pub fn from_bytes(bs: Bytes) -> Result<RegFileHeader,MRError> {
