@@ -267,13 +267,14 @@ impl NtfsModule {
                     }
                 } else if match_type.eq(&MatchType::Regex) {
                     pb2.set_position(progress);
-
+                    
                     if let Some(rbp) = &regex_bytes_pattern {
                         for mt in rbp.find_iter(&bs) {
+                            let rs = String::from_utf8_lossy(mt.as_bytes());
                             let s = format!(
                                 "{} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
-                                mt.as_bytes(),
+                                rs,
                                 ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
                             );
                             pb2.println(s);
