@@ -9,10 +9,10 @@ use meta_reader::{
     file_struct::{
         elf::{elf32::ELF32, elf64::ELF64},
         ext4::{Ext4, FileType, Inode},
-        ntfs::Ntfs,
+        ntfs::{Ntfs, MFTEntry},
     },
     modules::{ext4::Ext4Module, ntfs::NtfsModule},
-    utils::{file::filesize_to_human_string, funcs::i_to_m}, cmd::cmd_prcess,
+    utils::{file::filesize_to_human_string, funcs::i_to_m}, cmd::cli::cmd_prcess,
 };
 
 static mut PASSWD: Option<HashMap<u16, String>> = None;
@@ -401,7 +401,7 @@ fn main() {
             module.dump_usn(_f_args).unwrap();
         }
     } else if args[1].eq("test") {
-        cmd_prcess();
+        
     } else if args[1].eq("alias") {
     } else {
         println!(

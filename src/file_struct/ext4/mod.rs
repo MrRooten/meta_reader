@@ -7,6 +7,7 @@ pub mod ext4_impl;
 pub mod group_descriptor_impl;
 pub mod inode_table_impl;
 pub mod journal_impl;
+pub mod fs_impl;
 #[derive(Debug,Default)]
 pub struct Ext4 {
     reader                  : MRFile,

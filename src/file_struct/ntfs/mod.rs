@@ -7,7 +7,7 @@ use std::ops::Range;
 pub mod ntfs_impl;
 pub mod mft_impl;
 pub mod journal_impl;
-
+pub mod fs_impl;
 
 pub struct Ntfs {
     start_with                  : Vec<u8>,

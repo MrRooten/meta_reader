@@ -251,13 +251,19 @@ impl Ntfs {
                     } else {
                         is_deleted = false;
                     }
-                    let entry = MFTEntry::parse(
-                        Bytes::from(mft_bs),
-                        i_to_m(self),
-                        (start + i + offset) as u64,
-                        index,
-                    );
-                    f(index, entry, is_deleted, i_to_m(self));
+                    let entry = std::panic::catch_unwind(|| {
+                        let entry = MFTEntry::parse(
+                            Bytes::from(mft_bs),
+                            i_to_m(self),
+                            (start + i + offset) as u64,
+                            index,
+                        );
+                        entry
+                    });
+                    if let Ok(o) = entry {
+                        f(index, o, is_deleted, i_to_m(self));
+                    }
+                    
                     index += 1;
                     offset += self.get_mft_size();
                 }
