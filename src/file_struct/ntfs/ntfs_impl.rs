@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, io::Write, ops::Range, rc::Rc};
+use std::{collections::HashMap, fs, io::Write, ops::Range, rc::Rc, path::Path};
 
 use bytes::{Buf, Bytes};
 
@@ -11,7 +11,8 @@ use crate::utils::{
 use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs, USNChangeJournal, Value20_AttributeList};
 
 impl Ntfs {
-    pub fn open(img: &str) -> Result<Ntfs, MRError> {
+    pub fn open<P>(img: P) -> Result<Ntfs, MRError>
+    where P: AsRef<Path> + ToString {
         let mr_file = MRFile::new(img);
         let mr_file = match mr_file {
             Ok(file) => file,

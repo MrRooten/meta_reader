@@ -1,5 +1,5 @@
 #![allow(unused)]
-use std::collections::HashMap;
+use std::{collections::HashMap, path::{Path, self}};
 
 use crate::{file_struct::ntfs::Ntfs, utils::MRError};
 pub mod stat;
@@ -14,7 +14,9 @@ pub struct NtfsModule {
 }
 
 impl NtfsModule {
-    pub fn new(file: &str) -> Result<NtfsModule, MRError> {
+    pub fn new<P>(file: P) -> Result<NtfsModule, MRError> 
+    where P: AsRef<path::Path> + ToString {
+        let s = file.to_string();
         let ntfs = match Ntfs::open(file) {
             Ok(o) => o,
             Err(e) => {
@@ -23,7 +25,7 @@ impl NtfsModule {
         };
         Ok(Self {
             ntfs: ntfs,
-            file: file.to_string(),
+            file: s,
             func: Default::default(),
         })
     }

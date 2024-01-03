@@ -1,5 +1,5 @@
 #![allow(unused)]
-use std::{fs::File, io::{BufReader, SeekFrom, Read, Seek}, ops::Range};
+use std::{fs::File, io::{BufReader, SeekFrom, Read, Seek}, ops::Range, path::Path};
 
 use super::{MRError, funcs::i_to_m};
 
@@ -10,7 +10,9 @@ pub struct MRFile {
 }
 
 impl MRFile {
-    pub fn new(p: &str) -> Result<MRFile,MRError> {
+    pub fn new<P>(p: P) -> Result<MRFile,MRError>
+    where P: AsRef<Path> + ToString {
+        let s = p.to_string();
         let f = File::open(p);
         let f = match f {
             Ok(file) => file,
@@ -20,7 +22,7 @@ impl MRFile {
         };
         let f = BufReader::new(f);
         Ok(MRFile {
-            path: p.to_string(),
+            path: s,
             reader: Some(f),
         })
     }
