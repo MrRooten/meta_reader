@@ -33,7 +33,7 @@ impl MRError {
 impl fmt::Display for MRError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(detail) = &self.detail {
-            return write!(f, "{}: {:?}", self.kind, detail)
+            return write!(f, "{}: {}", self.kind, detail)
         }
         
         if let Some(err) = &self.err {
