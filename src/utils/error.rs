@@ -1,19 +1,27 @@
 use std::{error::Error, fmt};
 
-use super::MRError;
+use super::{MRError, MRErrKind};
 
 
 impl MRError {
     pub fn new(msg: &str) -> MRError{
         MRError {
-            detail: msg.to_string(),
+            detail: Some(msg.to_string()),
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with_kind(msg: &str, kind: MRErrKind) -> MRError {
+        MRError {
+            detail: Some(msg.to_string()),
+            kind: kind,
             ..Default::default()
         }
     }
 
     pub fn from(err: Box<dyn Error>) -> MRError{
         let mut result = MRError {
-            detail: "".to_string(),
+            detail: Some("".to_string()),
             ..Default::default()
         };
         result.err = Some(err);
@@ -21,15 +29,29 @@ impl MRError {
     }
 }
 
+
 impl fmt::Display for MRError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f,"{}",self.detail)
+        if let Some(detail) = &self.detail {
+            return write!(f, "{}: {:?}", self.kind, detail)
+        }
+        
+        if let Some(err) = &self.err {
+            return write!(f, "{}: {:?}", self.kind, err)
+        }
+
+        return write!(f, "{}: Nothing", self.kind)
     }
 }
 
 impl Error for MRError {
     fn description(&self) -> &str {
-        &self.detail
+        match &self.detail {
+            Some(s) => &s,
+            None => {
+                ""
+            }
+        }
     }
 
 
