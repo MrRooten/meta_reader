@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, path::Path};
 
 use bytes::{Bytes, Buf};
 
@@ -7,7 +7,8 @@ use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 use super::{Ext4, SuperBlock, GroupDescriptor, Inode, Block, DirectoryEntry, Journal};
 
 impl Ext4 {
-    pub fn open(path: &str) -> Result<Self,MRError> {
+    pub fn open<P>(path: P) -> Result<Self,MRError>
+    where P: AsRef<Path> + ToString {
         let mr_file = MRFile::new(path);
         let mr_file = match mr_file {
             Ok(file) => file,
