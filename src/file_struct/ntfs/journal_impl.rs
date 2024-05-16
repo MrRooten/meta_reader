@@ -251,7 +251,6 @@ impl USNChangeJournal {
         let data_runs: Vec<DataDescriptor>;
         if self.mft.map_attr_chains.get(&0x20).is_some() {
             let ntfs = unsafe { &*self.ntfs.unwrap() };
-            let ntfs = i_to_m(ntfs);
             let mut _data_runs: Option<Vec<DataDescriptor>> = None;
             if let Some(attrs) = self.mft.map_attr_chains.get(&0x20) {
                 let attr = attrs.first().unwrap();

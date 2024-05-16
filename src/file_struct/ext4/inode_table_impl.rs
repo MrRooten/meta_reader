@@ -1,7 +1,7 @@
 use bytes::{Buf, Bytes};
 use chrono::NaiveDateTime;
 
-use crate::utils::{file::MRFile, funcs::i_to_m, MRError};
+use crate::utils::{file::MRFile, MRError};
 
 use super::{
     DirectoryEntry, Ext4, Extent, ExtentHeader, ExtentIdx, ExtentNode, ExtentNodeType, ExtentTree,
@@ -272,7 +272,7 @@ impl Inode {
         };
         unsafe {
             let ext4 = &(*self.ext4.unwrap());
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
 
             for extent in extents {
                 let mut base_addr = extent.get_start() * ext4.get_block_size();
@@ -333,7 +333,7 @@ impl Inode {
             let mut extents = vec![];
             let mut stack = vec![];
             let ext4 = &(*self.ext4.unwrap());
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
             let first =
                 ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28);
             stack.push(first);
@@ -406,7 +406,7 @@ impl Inode {
         };
         unsafe {
             let ext4 = &(*self.ext4.unwrap());
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
             let mut result = Vec::new();
 
             for extent in extents {

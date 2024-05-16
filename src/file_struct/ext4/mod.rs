@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{cell::{Cell, RefCell, UnsafeCell}, ops::Range};
 
 use bytes::Bytes;
 
@@ -11,12 +11,12 @@ pub mod fs_impl;
 #[derive(Debug,Default)]
 pub struct Ext4 {
     reader                  : MRFile,
-    super_block             : Option<SuperBlock>,
-    group_descriptors       : Option<Vec<GroupDescriptor>>,
-    block_size              : usize
+    super_block             : RefCell<Option<SuperBlock>>,
+    group_descriptors       : RefCell<Option<Vec<GroupDescriptor>>>,
+    block_size              : Cell<usize>
 }
 
-#[derive(Debug,Default)]
+#[derive(Debug,Default, Clone, Copy)]
 pub struct SuperBlock {
     pub s_inodes_count      : u32,          //0x0
     pub s_block_count       : u32,          //0x4  

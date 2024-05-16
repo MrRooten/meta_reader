@@ -281,10 +281,10 @@ impl Ntfs {
         self.mft_entry_size
     }
 
-    pub fn get_mft_entry_by_index(&mut self, index: u64) -> Option<MFTEntry> {
+    pub fn get_mft_entry_by_index(&self, index: u64) -> Option<MFTEntry> {
         let mut _index = index;
         let mft_size = self.get_mft_size();
-        let datas = self.get_datas_of_mft();
+        let datas = i_to_m(self).get_datas_of_mft();
         for data in datas {
             let mft_cap = data.datasize / mft_size as u64;
             if _index > mft_cap {

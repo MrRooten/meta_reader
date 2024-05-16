@@ -1,7 +1,7 @@
 use bytes::Buf;
 use std::ops::Range;
 
-use crate::utils::{funcs::i_to_m, MRError};
+use crate::utils::MRError;
 
 use super::*;
 
@@ -45,7 +45,7 @@ impl GroupDescriptor {
     pub fn get_inode(&self, id: u32) -> Result<Inode, MRError> {
         unsafe {
             let ext4 = &(*self.ext4_to_self.unwrap());
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_table_lo as usize;
             if self.is_64bit {
@@ -79,7 +79,7 @@ impl GroupDescriptor {
     pub fn iter_inodes(&self, f: fn(Inode)) {
         unsafe {
             let ext4 = &(*self.ext4_to_self.unwrap());
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_table_lo as usize;
             if self.is_64bit {

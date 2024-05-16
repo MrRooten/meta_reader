@@ -1,3 +1,5 @@
+
+#[allow(invalid_reference_casting)]
 pub fn i_to_m<T>(reference: &T) -> &mut T {
     unsafe {
         let const_ptr = reference as *const T;

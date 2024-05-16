@@ -1,6 +1,6 @@
 use bytes::Bytes;
 
-use crate::{file_struct::{FileSystem, File}, utils::{MRError, funcs::i_to_m}};
+use crate::{file_struct::{FileSystem, File}, utils::{MRError}};
 
 use super::{Ext4, Inode};
 
@@ -17,7 +17,7 @@ impl File for Inode {
         let mut rest_size = size;
         let mut cur_start = start;
         let ext4 = unsafe { &(*self.ext4.unwrap()) };
-        let reader = i_to_m(ext4).get_reader();
+        let reader = ext4.get_reader();
         for ext in &extents {
             if rest_size == 0 {
                 break;

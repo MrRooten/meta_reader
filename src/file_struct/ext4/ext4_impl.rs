@@ -2,7 +2,7 @@ use std::{ops::Range, path::Path};
 
 use bytes::{Bytes, Buf};
 
-use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
+use crate::utils::{file::MRFile, MRError};
 
 use super::{Ext4, SuperBlock, GroupDescriptor, Inode, Block, DirectoryEntry, Journal};
 
@@ -23,7 +23,7 @@ impl Ext4 {
         })
     }
 
-    fn set_super_block(&mut self) -> Result<&SuperBlock,MRError> {
+    fn set_super_block(&self) -> Result<&SuperBlock,MRError> {
         let mut super_block = SuperBlock::default();
         let sbytes = self.reader.read_n(1024, 1024).expect("error");
         let sbytes = Bytes::from(sbytes);
@@ -45,15 +45,27 @@ impl Ext4 {
         if super_block.is_64bit {
             super_block.s_log_groups_per_flex = (&sbytes[0x174..0x175]).get_u8();
         }
-        self.super_block = Some(super_block);
-        match &self.super_block {
-            Some(o) => {
-                return Ok(o);
+        self.super_block.replace(Some(super_block));
+        let v = self.super_block.as_ptr();
+        match unsafe { &*v } {
+            Some(s) => {
+                return Ok(s)
             },
             None => {
                 return Err(MRError::new("Can not parse super block"));
             }
+
         }
+        // match v {
+        //     Some(s) => todo!(),
+        //     None => todo!(),
+        //     // Some(o) => {
+        //     //     return Ok(o);
+        //     // },
+        //     // None => {
+        //     //     return Err(MRError::new("Can not parse super block"));
+        //     // }
+        // }
     }
 
     pub fn get_datas_of_inodes(&self) {
@@ -61,17 +73,13 @@ impl Ext4 {
     }
 
     pub fn get_super_block(&self) -> Result<&SuperBlock,MRError> {
-        if self.super_block.is_some() {
-            match &self.super_block {
-                Some(s) => {
-                    return Ok(s);
-                },
-                None => {
-                }
-            }
+        let v = self.super_block.as_ptr();
+        if let Some(s) =  unsafe { &*v } {
+            return Ok(s);
+
         }
 
-        let ret = i_to_m(self).set_super_block();
+        let ret = self.set_super_block();
         match ret {
             Ok(o) => {
                 return Ok(o);
@@ -83,7 +91,7 @@ impl Ext4 {
 
     }
 
-    fn set_descs(&mut self) -> Result<&Vec<GroupDescriptor>,MRError> {
+    fn set_descs(&self) -> Result<&Vec<GroupDescriptor>,MRError> {
         let mut result: Vec<GroupDescriptor> = Vec::default();
         let super_block = self.get_super_block();
         let super_block = match super_block {
@@ -107,7 +115,7 @@ impl Ext4 {
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
         let mut count = 0;
-        self.block_size = block_size;
+        self.block_size.replace(block_size);
         loop {
             let gdt = self.reader.read_n(block_size + i, descs_size).expect("error");
             let gdt = Bytes::from(gdt);
@@ -118,9 +126,9 @@ impl Ext4 {
             i += descs_size;
             count += 1;
         }
-        self.group_descriptors = Some(result);
-        
-        match &self.group_descriptors {
+        self.group_descriptors.replace(Some(result));
+        let v = self.group_descriptors.as_ptr();
+        match unsafe { &*v } {
             Some(o) => {
                 return Ok(o);
             },
@@ -136,23 +144,18 @@ impl Ext4 {
         unimplemented!()
     }
 
-    pub fn get_reader(&mut self) -> &MRFile {
+    pub fn get_reader(&self) -> &MRFile {
         &self.reader
     }
 
 
-    pub fn get_descs(&self) -> Result<&Vec<GroupDescriptor>,MRError> {
-        if self.group_descriptors.is_some() {
-            match &self.group_descriptors {
-                Some(s) => {
-                    return Ok(s);
-                },
-                None => {
-                }
-            }
+    pub fn get_descs(&self) -> Result<&Vec<GroupDescriptor>, MRError> {
+        let v = self.group_descriptors.as_ptr();
+        if let Some(s) =  unsafe { &*v } {
+            return Ok(s);
         }
 
-        let ret = i_to_m(self).set_descs();
+        let ret = self.set_descs();
         match ret {
             Ok(o) => {
                 return Ok(o);
@@ -370,7 +373,7 @@ impl Ext4 {
     }
 
     pub fn get_block_size(&self) -> usize {
-        self.block_size
+        self.block_size.get()
     }
 
     pub fn find_unreferenced_idx(&self) {

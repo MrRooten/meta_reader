@@ -446,7 +446,7 @@ impl MFTEntry {
 
     pub fn parse(
         bs: Bytes,
-        ntfs: &mut Ntfs,
+        ntfs: &Ntfs,
         mft_base: u64,
         index: u64,
     ) -> Result<MFTEntry, MRError> {
@@ -617,7 +617,7 @@ impl MFTValue {
     pub fn parse(
         attr_type: u32,
         bs: Bytes,
-        ntfs: &mut Ntfs,
+        ntfs: &Ntfs,
         index: u64,
         is_nonresident: bool,
         base: u64,
@@ -734,7 +734,7 @@ impl FileTime {
 }
 
 impl Value10_StandardInfomation {
-    pub fn parse(bs: Bytes, ntfs: &mut Ntfs, index: u64) -> Result<Self, MRError> {
+    pub fn parse(bs: Bytes, ntfs: &Ntfs, index: u64) -> Result<Self, MRError> {
         let file_create_time = FileTime::parse_from_u64((&bs[0..8]).get_u64());
         let file_change_time = FileTime::parse_from_u64((&bs[8..16]).get_u64());
         let mft_change_time = FileTime::parse_from_u64((&bs[16..24]).get_u64());
@@ -1419,7 +1419,7 @@ impl CCommon {
 impl MFTAttribute {
     pub fn parse(
         bs: &Bytes,
-        ntfs: &mut Ntfs,
+        ntfs: &Ntfs,
         base_of_mft: u64,
         index: u64,
         base_addr: u64,

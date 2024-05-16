@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use bytes::{Buf, Bytes};
 
-use crate::utils::{funcs::i_to_m, MRError};
+use crate::utils::{MRError};
 
 use super::{
     CommitBlock, Ext4, Inode, Journal, JournalBlockTag, JournalDataBlock, JournalDescriptorBlock,
@@ -164,7 +164,7 @@ impl JournalDescriptorBlock {
 
 impl Journal {
     pub fn parse(ext4: &Ext4, offset: usize) -> Result<Self, MRError> {
-        let reader = i_to_m(ext4).get_reader();
+        let reader = ext4.get_reader();
         let sb_bs = reader.read_n(offset, 0x100 + 16 * 48).unwrap();
         let sb = JournalSuperBlock::parse(Bytes::from(sb_bs), ext4);
         Ok(Self {
@@ -181,7 +181,7 @@ impl Journal {
         unsafe {
             let i = 1;
             let ext4 = &*self.ext4.unwrap();
-            let reader = i_to_m(ext4).get_reader();
+            let reader = ext4.get_reader();
 
             let mut base_offset = self.offset + self.super_block.s_blocksize as usize;
             for _dummy in 0..self.super_block.s_maxlen {
@@ -242,7 +242,7 @@ impl Journal {
     pub fn find_inodes(&self, id: u32) -> Vec<Inode> {
         let mut result = vec![];
         let ext4 = unsafe { &(*self.ext4.unwrap()) };
-        let reader = i_to_m(ext4).get_reader();
+        let reader = ext4.get_reader();
         let block_size = ext4.get_block_size();
         let s_inodes_per_group = ext4.get_s_inodes_per_group();
         let index = (id - 1) / s_inodes_per_group;
@@ -273,7 +273,7 @@ impl Journal {
         F: FnMut(u32, &Inode),
     {
         let ext4 = unsafe { &*self.ext4.unwrap() };
-        let reader = i_to_m(ext4).get_reader();
+        let reader = ext4.get_reader();
         let gdts = ext4.get_descs().unwrap();
         self.iter_transaction(&mut |transaction| {
             let data_blocks = &transaction.data_blocks;
