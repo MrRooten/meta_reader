@@ -6,34 +6,34 @@ use crate::utils::{MRErrKind, MRError};
 use super::*;
 
 impl GroupDescriptor {
+    fn get_ext4(&self) -> &Ext4 {
+        unsafe { &*self.ext4_to_self.unwrap() }
+    }
+
     pub fn get_block_bitmap(&self) -> Range<usize> {
-        unsafe {
-            let ext4 = &(*self.ext4_to_self.unwrap());
-            let block_size = ext4.get_block_size();
-            let mut offset = self.bg_block_bitmap_lo as usize;
-            if self.is_64bit {
-                offset |= (self.bg_block_bitmap_hi as usize) << 32;
-            }
-            Range {
-                start: offset,
-                end: offset + block_size,
-            }
+        let ext4 = self.get_ext4();
+        let block_size = ext4.get_block_size();
+        let mut offset = self.bg_block_bitmap_lo as usize;
+        if self.is_64bit {
+            offset |= (self.bg_block_bitmap_hi as usize) << 32;
+        }
+        Range {
+            start: offset,
+            end: offset + block_size,
         }
     }
 
     pub fn get_inode_bitmap(&self) -> Range<usize> {
-        unsafe {
-            let ext4 = &(*self.ext4_to_self.unwrap());
-            let block_size = ext4.get_block_size();
-            let mut offset = self.bg_inode_bitmap_lo as usize;
-            if self.is_64bit {
-                offset |= (self.bg_inode_bitmap_hi as usize) << 32;
-            }
-            let offset = offset * block_size;
-            Range {
-                start: offset,
-                end: offset + block_size,
-            }
+        let ext4 = self.get_ext4();
+        let block_size = ext4.get_block_size();
+        let mut offset = self.bg_inode_bitmap_lo as usize;
+        if self.is_64bit {
+            offset |= (self.bg_inode_bitmap_hi as usize) << 32;
+        }
+        let offset = offset * block_size;
+        Range {
+            start: offset,
+            end: offset + block_size,
         }
     }
 
@@ -42,28 +42,26 @@ impl GroupDescriptor {
     }
 
     pub fn get_inode(&self, id: u32) -> Result<Inode, MRError> {
-        unsafe {
-            let ext4 = &(*self.ext4_to_self.unwrap());
-            let reader = ext4.get_reader();
-            let block_size = ext4.get_block_size();
-            let mut offset = self.bg_inode_table_lo as usize;
-            if self.is_64bit {
-                offset |= (self.bg_inode_table_hi as usize) << 32;
-            }
-
-            let sb = ext4.get_super_block().unwrap();
-            let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
-            let s_inodes = sb.s_inodes_per_group;
-            let count_free_inodes = self.count_free_inodes();
-            if s_inodes < count_free_inodes {
-                return Err(MRError::new("Error with count_free_inodes"));
-            }
-            let len = s_inodes - count_free_inodes;
-            let index = (id - 1) % sb.s_inodes_per_group;
-            let mut base = offset * ext4.get_block_size() + index as usize * 0x100;
-            let bs = reader.read_n(base, 0x100).unwrap();
-            Inode::parse(&Bytes::from(bs), ext4, base as u64)
+        let ext4 = self.get_ext4();
+        let reader = ext4.get_reader();
+        let block_size = ext4.get_block_size();
+        let mut offset = self.bg_inode_table_lo as usize;
+        if self.is_64bit {
+            offset |= (self.bg_inode_table_hi as usize) << 32;
         }
+
+        let sb = ext4.get_super_block().unwrap();
+        let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
+        let s_inodes = sb.s_inodes_per_group;
+        let count_free_inodes = self.count_free_inodes();
+        if s_inodes < count_free_inodes {
+            return Err(MRError::new("Error with count_free_inodes"));
+        }
+        let len = s_inodes - count_free_inodes;
+        let index = (id - 1) % sb.s_inodes_per_group;
+        let mut base = offset * ext4.get_block_size() + index as usize * 0x100;
+        let bs = reader.read_n(base, 0x100).unwrap();
+        Inode::parse(&Bytes::from(bs), ext4, base as u64)
     }
 
     pub fn get_inode_table(&self) -> u64 {
@@ -75,27 +73,25 @@ impl GroupDescriptor {
     }
 
     pub fn iter_inodes(&self, f: fn(Inode)) {
-        unsafe {
-            let ext4 = &(*self.ext4_to_self.unwrap());
-            let reader = ext4.get_reader();
-            let block_size = ext4.get_block_size();
-            let mut offset = self.bg_inode_table_lo as usize;
-            if self.is_64bit {
-                offset |= (self.bg_inode_table_hi as usize) << 32;
-            }
-            let sb = ext4.get_super_block().unwrap();
-            let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
-            let s_inodes = sb.s_inodes_per_group;
-            let len = s_inodes - self.count_free_inodes();
-            let mut i = 0;
-            let mut base = offset * ext4.get_block_size();
-            while i < len {
-                let bs = reader.read_n(base, 0x100).unwrap();
-                let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64).unwrap();
-                f(inode);
-                base += 0x100;
-                i += 1;
-            }
+        let ext4 = self.get_ext4();
+        let reader = ext4.get_reader();
+        let block_size = ext4.get_block_size();
+        let mut offset = self.bg_inode_table_lo as usize;
+        if self.is_64bit {
+            offset |= (self.bg_inode_table_hi as usize) << 32;
+        }
+        let sb = ext4.get_super_block().unwrap();
+        let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
+        let s_inodes = sb.s_inodes_per_group;
+        let len = s_inodes - self.count_free_inodes();
+        let mut i = 0;
+        let mut base = offset * ext4.get_block_size();
+        while i < len {
+            let bs = reader.read_n(base, 0x100).unwrap();
+            let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64).unwrap();
+            f(inode);
+            base += 0x100;
+            i += 1;
         }
     }
 
