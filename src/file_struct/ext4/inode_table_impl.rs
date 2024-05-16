@@ -49,17 +49,16 @@ impl ExtentNode {
         let en_max = (&bs[4..6]).get_u16_le();
         let en_depth = (&bs[6..8]).get_u16_le();
         let en_generation = (&bs[8..12]).get_u32_le();
-        let t: ExtentNodeType;
         let mut extents = vec![];
         let mut idx_items = vec![];
-        if en_depth == 0 {
-            t = ExtentNodeType::ExtentType;
+        let t = if en_depth == 0 {
+            ExtentNodeType::ExtentType
         } else {
-            t = ExtentNodeType::IdxType;
-        }
+            ExtentNodeType::IdxType
+        };
 
         let header = ExtentHeader {
-            eh_magic: eh_magic,
+            eh_magic,
             eh_entries: en_entries,
             eh_max: en_max,
             eh_depth: en_depth,
@@ -67,9 +66,9 @@ impl ExtentNode {
         };
 
         Self {
-            header: header,
-            idx_items: idx_items,
-            extents: extents,
+            header,
+            idx_items,
+            extents,
             node_type: t,
             base_addr: offset,
         }
@@ -81,13 +80,13 @@ impl ExtentNode {
         let en_max = (&bs[4..6]).get_u16_le();
         let en_depth = (&bs[6..8]).get_u16_le();
         let en_generation = (&bs[8..12]).get_u32_le();
-        let t: ExtentNodeType;
+
         let mut extents = vec![];
         let mut idx_items = vec![];
-        if en_depth == 0 {
+        let t = if en_depth == 0 {
             let mut index = 12;
             for i in 0..en_max {
-                let v = (&bs[index..index + 12]).to_vec();
+                let v = bs[index..index + 12].to_vec();
                 let t = Bytes::from(v);
                 let extent = Extent::parse(&t);
                 if extent.ee_start_lo == 0 && extent.ee_start_hi == 0 {
@@ -96,14 +95,14 @@ impl ExtentNode {
                 extents.push(extent);
                 index += 12;
             }
-            t = ExtentNodeType::ExtentType;
+            ExtentNodeType::ExtentType
         } else {
             let mut index = 12;
             for i in 0..en_max {
                 if index + 12 > bs.len() {
                     break;
                 }
-                let v = (&bs[index..index + 12]).to_vec();
+                let v = bs[index..index + 12].to_vec();
                 let t = Bytes::from(v);
                 let idx = ExtentIdx::parse(&t);
                 if idx.ei_leaf_lo == 0 && idx.ei_leaf_hi == 0 {
@@ -112,11 +111,11 @@ impl ExtentNode {
                 idx_items.push(idx);
                 index += 12;
             }
-            t = ExtentNodeType::IdxType;
-        }
+            ExtentNodeType::IdxType
+        };
 
         let header = ExtentHeader {
-            eh_magic: eh_magic,
+            eh_magic,
             eh_entries: en_entries,
             eh_max: en_max,
             eh_depth: en_depth,
@@ -124,9 +123,9 @@ impl ExtentNode {
         };
 
         Self {
-            header: header,
-            idx_items: idx_items,
-            extents: extents,
+            header,
+            idx_items,
+            extents,
             node_type: t,
             base_addr: offset,
         }
@@ -143,11 +142,11 @@ impl Inode {
             return true;
         }
 
-        return false;
+        false
     }
 
     pub fn get_uid(&self) -> u16 {
-        return self.i_uid;
+        self.i_uid
     }
 
     pub fn is_empty(&self) -> bool {
@@ -156,35 +155,39 @@ impl Inode {
             return false;
         }
 
-        return true;
+        true
     }
-
+    #[allow(deprecated)]
     pub fn get_atime(&self) -> NaiveDateTime {
-        let native = NaiveDateTime::from_timestamp_opt(self.i_atime as i64, 0).unwrap();
-        native
+        
+        NaiveDateTime::from_timestamp_opt(self.i_atime as i64, 0).unwrap()
     }
 
+    #[allow(deprecated)]
     pub fn get_ctime(&self) -> NaiveDateTime {
-        let native = NaiveDateTime::from_timestamp_opt(self.i_ctime as i64, 0).unwrap();
-        native
+        
+        NaiveDateTime::from_timestamp_opt(self.i_ctime as i64, 0).unwrap()
     }
 
+    #[allow(deprecated)]
     pub fn get_dtime(&self) -> NaiveDateTime {
-        let native = NaiveDateTime::from_timestamp_opt(self.i_dtime as i64, 0).unwrap();
-        native
+        
+        NaiveDateTime::from_timestamp_opt(self.i_dtime as i64, 0).unwrap()
     }
 
+    #[allow(deprecated)]
     pub fn get_mtime(&self) -> NaiveDateTime {
-        let native = NaiveDateTime::from_timestamp_opt(self.i_mtime as i64, 0).unwrap();
-        native
+        
+        NaiveDateTime::from_timestamp_opt(self.i_mtime as i64, 0).unwrap()
     }
 
+    #[allow(deprecated)]
     pub fn get_birth(&self) -> NaiveDateTime {
-        let birth = NaiveDateTime::from_timestamp_opt(self.i_crtime as i64, 0).unwrap();
-        birth
+        
+        NaiveDateTime::from_timestamp_opt(self.i_crtime as i64, 0).unwrap()
     }
     pub fn get_sub_dirs(&self) -> Result<Vec<DirectoryEntry>, MRError> {
-        if self.is_dir() == false {
+        if !self.is_dir() {
             return Err(MRError::new("Not a dir"));
         }
 
@@ -216,16 +219,14 @@ impl Inode {
 
     fn align_of_4(&self, n: usize) -> usize {
         if n % 4 == 0 {
-            return n;
+            n
         } else {
-            let res = (4 - (n % 4)) + n;
-
-            return res;
+            (4 - (n % 4)) + n
         }
     }
     //Get sub dirs by raw way, means may search the file may not existed(deleted)
     pub fn get_sub_dirs_raw(&self) -> Result<Vec<DirectoryEntry>, MRError> {
-        if self.is_dir() == false {
+        if !self.is_dir() {
             return Err(MRError::new("Not a dir"));
         }
 
@@ -292,11 +293,11 @@ impl Inode {
                 }
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn get_sub_inode_by_name(&self, name: &str) -> Result<u32, MRError> {
-        if self.is_dir() == false {
+        if !self.is_dir() {
             return Err(MRError::new("Not a dir"));
         }
 
@@ -337,8 +338,7 @@ impl Inode {
             let first =
                 ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28);
             stack.push(first);
-            while stack.len() != 0 {
-                let f = stack.pop().unwrap();
+            while let Some(f) = stack.pop() {
                 if f.node_type.eq(&ExtentNodeType::ExtentType) {
                     let mut index = f.base_addr + EXTENT_HEADER_SIZE as u64;
                     for i in 0..f.header.eh_entries {
@@ -375,7 +375,7 @@ impl Inode {
                             .read_n(leaf_offset + EXTENT_HEADER_SIZE, idxs_size)
                             .unwrap();
                         for j in 0..child_node.header.eh_entries {
-                            let _vs = (&idxs_bs[idx_index..(idx_index + EXTENT_IDX_SIZE)]).to_vec();
+                            let _vs = idxs_bs[idx_index..(idx_index + EXTENT_IDX_SIZE)].to_vec();
                             let child_idx = ExtentIdx::parse(&Bytes::from(_vs));
                             child_node.idx_items.push(child_idx);
                             idx_index += EXTENT_IDX_SIZE;
@@ -469,30 +469,30 @@ impl Inode {
         let i_projid = (&bs[0x9c..0x100]).get_u32_le();
         let i_block = (&bs[0x28..0x64]);
         Inode {
-            i_mode: i_mode,
-            i_uid: i_uid,
-            i_size_lo: i_size_lo,
-            i_atime: i_atime,
-            i_ctime: i_ctime,
-            i_mtime: i_mtime,
-            i_dtime: i_dtime,
-            i_gid: i_gid,
+            i_mode,
+            i_uid,
+            i_size_lo,
+            i_atime,
+            i_ctime,
+            i_mtime,
+            i_dtime,
+            i_gid,
             i_links_count: i_link_count,
-            i_blocks_lo: i_blocks_lo,
-            i_flags: i_flags,
-            i_generation: i_generation,
-            i_file_acl_lo: i_file_acl_lo,
-            i_size_high: i_size_high,
-            i_obso_faddr: i_obso_faddr,
-            i_extra_isize: i_extra_isize,
-            i_checksum_hi: i_checksum_hi,
-            i_ctime_extra: i_ctime_extra,
-            i_mtime_extra: i_mtime_extra,
+            i_blocks_lo,
+            i_flags,
+            i_generation,
+            i_file_acl_lo,
+            i_size_high,
+            i_obso_faddr,
+            i_extra_isize,
+            i_checksum_hi,
+            i_ctime_extra,
+            i_mtime_extra,
             i_atime_extra,
             i_crtime: i_ctrime,
             i_crtime_extra: i_ctrime_extra,
-            i_version_hi: i_version_hi,
-            i_projid: i_projid,
+            i_version_hi,
+            i_projid,
             i_block: i_block.to_vec(),
             ext4: Some(ext4 as *const Ext4),
             base_addr: offset,
@@ -522,7 +522,7 @@ impl TryFrom<u8> for FileType {
             return Ok(Self::SymbolicLink);
         }
         let msg = format!("Error for value {}", value);
-        return Err(MRError::new(&msg));
+        Err(MRError::new(&msg))
     }
 }
 
@@ -567,12 +567,12 @@ impl DirectoryEntry {
         if start_with + (8 + name_len as usize) > bs.len() {
             return (Err(MRError::new("Not a valid name")), 0);
         }
-        let name = (&bs[start_with + 8..start_with + (8 + name_len as usize)]).to_vec();
+        let name = bs[start_with + 8..start_with + (8 + name_len as usize)].to_vec();
         if start_with + (8 + real_name_len as usize) > bs.len() {
             return (Err(MRError::new("Not a valid zero_end_name")), 0);
         }
         let zero_end_name =
-            (&bs[start_with + 8..start_with + (8 + real_name_len as usize)]).to_vec();
+            bs[start_with + 8..start_with + (8 + real_name_len as usize)].to_vec();
         let zero_end_name = String::from_utf8_lossy(&zero_end_name);
 
         (

@@ -12,10 +12,13 @@ pub mod list_recoverable_inodes;
 pub mod search_deleted_files;
 pub mod search_recoverable_files;
 pub mod search_disk;
+
+type Ext4Func = Box<dyn Fn(HashMap<String,String>)>;
+
 pub struct Ext4Module {
     ext4    : Ext4,
     file    : String,
-    func    : HashMap<String,Box<dyn Fn(HashMap<String,String>)>>
+    func    : HashMap<String,Ext4Func>
 }
 
 impl Ext4Module {
@@ -28,7 +31,7 @@ impl Ext4Module {
         };
 
         Ok(Self {
-            ext4: ext4,
+            ext4,
             file: file.to_string(),
             func: Default::default(),
         })

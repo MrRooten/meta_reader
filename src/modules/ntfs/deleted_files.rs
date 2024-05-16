@@ -27,7 +27,7 @@ impl NtfsModule {
                     return ;
                 }
             };
-            if res.contains_attr(0x30) == false {
+            if !res.contains_attr(0x30) {
                 return ;
             }
             

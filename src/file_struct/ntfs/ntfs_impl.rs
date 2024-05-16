@@ -24,13 +24,9 @@ impl Ntfs {
         let bep = header[0..3].to_vec();
         let signature = header[3..11].to_vec();
         let signature = String::from_utf8_lossy(&signature).to_string();
-        let is_bitlocker: bool;
-        if signature.eq("-FVE-FS-") == true {
-            is_bitlocker = true;
-        } else {
-            is_bitlocker = false;
-        }
-        if signature.starts_with("NTFS") == false && is_bitlocker {
+        
+        let is_bitlocker: bool = signature.eq("-FVE-FS-");
+        if !signature.starts_with("NTFS") && is_bitlocker {
             return Err(MRError::new("Not a valid NTFS image"));
         }
 
@@ -44,21 +40,21 @@ impl Ntfs {
         let mft_entry_size = (&header[64..65]).get_u8();
         let index_entry_size = (&header[68..69]).get_u8();
 
-        let start_with = (&header[0..12]).to_vec();
+        let start_with = header[0..12].to_vec();
         let cluster_size = bytes_per_sector as u64 * sectors_per_cluster_block as u64;
         let offset = mft_cluster_block_number * cluster_size;
-        let s: usize;
-        if mft_entry_size <= 127 {
-            s = mft_entry_size as usize;
+
+        let s = if mft_entry_size <= 127 {
+            mft_entry_size as usize
         } else {
-            s = 256 - mft_entry_size as usize;
-        }
+            256 - mft_entry_size as usize
+        };
 
         let mft_entry_size = num::pow(2, s);
 
         Ok(Self {
             reader: mr_file,
-            start_with: start_with,
+            start_with,
             boot_entry_point: bep,
             sectors_per_cluster_block,
             bytes_per_sector,
@@ -66,7 +62,7 @@ impl Ntfs {
             mft_block_number: mft_cluster_block_number,
             mft_mirror_block_number: mft_mirror_cluster_block_number,
             mft_entry_size,
-            index_entry_size: index_entry_size,
+            index_entry_size,
             is_bitlocker,
             version: None,
             datas_of_mft: vec![],
@@ -75,7 +71,7 @@ impl Ntfs {
     }
 
     pub fn get_datas_of_mft(&mut self) -> &Vec<DataDescriptor> {
-        if self.datas_of_mft.len() != 0 {
+        if !self.datas_of_mft.is_empty() {
             return &self.datas_of_mft;
         }
 
@@ -126,13 +122,13 @@ impl Ntfs {
         //     }
         // }
 
-        return USNChangeJournal::from_mft(usn_jrnl, self);
+        USNChangeJournal::from_mft(usn_jrnl, self)
     }
 
     
 
     pub fn get_mft_by_path(&mut self, path: &str) -> Result<MFTEntry, MRError> {
-        let ps = path.split("\\").collect::<Vec<&str>>()[1..].to_vec();
+        let ps = path.split('\\').collect::<Vec<&str>>()[1..].to_vec();
         let root_mft = match self.get_root_mft() {
             Ok(o) => o,
             Err(e) => {
@@ -160,12 +156,12 @@ impl Ntfs {
                 }
             }
 
-            if find == false {
+            if !find {
                 return Err(MRError::new("No such a file in directory"));
             }
         }
 
-        return Ok(next);
+        Ok(next)
     }
 
     pub fn get_cluster_size(&self) -> u64 {
@@ -247,14 +243,10 @@ impl Ntfs {
                         offset += self.get_mft_size();
                         continue;
                     }
-                    if mft_bs[22] == 0 {
-                        is_deleted = true;
-                    } else {
-                        is_deleted = false;
-                    }
+                    is_deleted = mft_bs[22] == 0;
                     let entry = std::panic::catch_unwind(|| {
                         let entry = MFTEntry::parse(
-                            Bytes::from(mft_bs),
+                            mft_bs,
                             i_to_m(self),
                             (start + i + offset) as u64,
                             index,
@@ -310,7 +302,7 @@ impl Ntfs {
                 Err(e) => return None,
             }
         }
-        return None;
+        None
     }
 
     pub fn get_root_mft(&mut self) -> Result<MFTEntry, MRError> {
@@ -327,7 +319,7 @@ impl Ntfs {
             return self.version;
         }
 
-        if self.datas_of_mft.len() == 0 {
+        if self.datas_of_mft.is_empty() {
             return None;
         }
         let volume_index = 3;
@@ -364,6 +356,6 @@ impl Ntfs {
                 return true;
             }
         }
-        return false;
+        false
     }
 }

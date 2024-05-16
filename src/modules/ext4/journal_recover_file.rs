@@ -30,12 +30,12 @@ impl Ext4Module {
         let mut count = 0;
         for i in inodes {
             if let Ok(o) = i.get_extents_value() {
-                if o.len() == 0 {
+                if o.is_empty() {
                     continue;
                 }
                 let name = format!("{}.{}", out_file, count);
                 let mut f = fs::File::create(&name).unwrap();
-                f.write(&o).unwrap();
+                f.write_all(&o).unwrap();
                 count += 1;
             }
         }

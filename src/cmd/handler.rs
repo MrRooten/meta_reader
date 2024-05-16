@@ -3,23 +3,29 @@ use crate::utils::MRError;
 use super::commands::CmdMgr;
 
 pub struct Workplace {
-    name    : String 
+    _name    : String 
 
 }
 
 impl Workplace {
     pub fn new(name: &str) -> Workplace {
-        Workplace { name: name.to_string() }
+        Workplace { _name: name.to_string() }
     }
 }
 
 pub struct Environment {
-    workplace   : Option<Workplace>
+    _workplace   : Option<Workplace>
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Environment {
     pub fn new() -> Environment {
-        Environment { workplace: None }
+        Environment { _workplace: None }
     }
 }
 
@@ -50,8 +56,8 @@ fn process_line(line: &str) -> Vec<String> {
     let mut s = String::new();
     let mut is_escape = false;
     for c in line.chars() {
-        if c.is_whitespace() && state == false {
-            if s.len() > 0 {
+        if c.is_whitespace() && !state {
+            if !s.is_empty() {
                 result.push(s.clone());
                 s = String::new();
             }
@@ -68,20 +74,20 @@ fn process_line(line: &str) -> Vec<String> {
             continue;
         }
 
-        if c.eq(&'\'') && state == false {
+        if c.eq(&'\'') && !state {
             open_char = '\'';
             state = true;
             continue;
         }
 
-        if c.eq(&'"') && state == false {
+        if c.eq(&'"') && !state {
             open_char = '"';
             state = true;
             continue;
         }
 
-        if c.eq(&'\'') && open_char.eq(&'\'') && state == true {
-            if s.len() > 0 {
+        if c.eq(&'\'') && open_char.eq(&'\'') && state {
+            if !s.is_empty() {
                 result.push(s.clone());
                 s = String::new();
             }
@@ -90,8 +96,8 @@ fn process_line(line: &str) -> Vec<String> {
             continue;
         }
 
-        if c.eq(&'"') && open_char.eq(&'"') && state == true {
-            if s.len() > 0 {
+        if c.eq(&'"') && open_char.eq(&'"') && state {
+            if !s.is_empty() {
                 result.push(s.clone());
                 s = String::new();
             }
@@ -103,15 +109,15 @@ fn process_line(line: &str) -> Vec<String> {
         s.push(c);
     }
 
-    if s.len() > 0 {
+    if !s.is_empty() {
         result.push(s);
     }
-    return result;
+    result
 }
 
 pub fn process_arg(arg: &str) -> Vec<String> {
     let mut result = Vec::new();
-    let index = match arg.find("=") {
+    let index = match arg.find('=') {
         Some(s) => s,
         None => {
             result.push(arg.to_string());
@@ -122,7 +128,7 @@ pub fn process_arg(arg: &str) -> Vec<String> {
     let value = arg[index+1..].to_string();
     result.push(key);
     result.push(value);
-    return result;
+    result
 }
 
 impl CMDHandler {
@@ -140,7 +146,7 @@ impl CMDHandler {
     pub fn process(&self, line: &str) -> Result<(), MRError> {
         let argv = process_line(line);
         let command = &argv[0];
-        let command = match self.cmds.get_proc(&command) {
+        let command = match self.cmds.get_proc(command) {
             Some(s) => s,
             None => {
                 return Err(MRError::new("Not found command"));
@@ -151,19 +157,18 @@ impl CMDHandler {
         let mut args: Vec<Argument> = Vec::new();
         for arg in argv {
             let kv = process_arg(&arg);
-            let _a: Argument;
-            if kv.len() != 2 {
-                _a = Argument {
+            let a = if kv.len() != 2 {
+                Argument {
                     name: kv[0].to_string(),
                     value: "".to_string(),
                 }
             } else {
-                _a = Argument {
+                Argument {
                     name: kv[0].to_string(),
                     value: kv[1].to_string(),
                 }
-            }
-            args.push(_a);
+            };
+            args.push(a);
         }
 
         command.run(&args)

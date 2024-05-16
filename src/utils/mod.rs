@@ -20,7 +20,7 @@ impl Display for MRErrKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => {
-                return write!(f, "None")
+                write!(f, "None")
             }
         }
         

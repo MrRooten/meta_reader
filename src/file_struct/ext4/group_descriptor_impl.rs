@@ -12,7 +12,7 @@ impl GroupDescriptor {
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_block_bitmap_lo as usize;
             if self.is_64bit {
-                offset = (self.bg_block_bitmap_hi as usize) << 32 | offset;
+                offset |= (self.bg_block_bitmap_hi as usize) << 32;
             }
             Range {
                 start: offset,
@@ -28,7 +28,7 @@ impl GroupDescriptor {
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_bitmap_lo as usize;
             if self.is_64bit {
-                offset = (self.bg_inode_bitmap_hi as usize) << 32 | offset;
+                offset |= (self.bg_inode_bitmap_hi as usize) << 32;
             }
             let offset = offset * block_size;
             Range {
@@ -49,7 +49,7 @@ impl GroupDescriptor {
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_table_lo as usize;
             if self.is_64bit {
-                offset = (self.bg_inode_table_hi as usize) << 32 | offset;
+                offset |= (self.bg_inode_table_hi as usize) << 32;
             }
 
             let sb = ext4.get_super_block().unwrap();
@@ -71,7 +71,7 @@ impl GroupDescriptor {
     pub fn get_inode_table(&self) -> u64 {
         let mut offset = self.bg_inode_table_lo as usize;
         if self.is_64bit {
-            offset = (self.bg_inode_table_hi as usize) << 32 | offset;
+            offset |= (self.bg_inode_table_hi as usize) << 32;
         }
         offset as u64
     }
@@ -83,7 +83,7 @@ impl GroupDescriptor {
             let block_size = ext4.get_block_size();
             let mut offset = self.bg_inode_table_lo as usize;
             if self.is_64bit {
-                offset = (self.bg_inode_table_hi as usize) << 32 | offset;
+                offset |= (self.bg_inode_table_hi as usize) << 32;
             }
             let sb = ext4.get_super_block().unwrap();
             let table_size = (sb.s_inode_size as u32 * sb.s_inodes_per_group) as usize;
@@ -105,6 +105,7 @@ impl GroupDescriptor {
         unimplemented!()
     }
 
+    #[allow(clippy::field_reassign_with_default)]
     pub fn parse(bs: Bytes, ext4_self: &Ext4) -> Self {
         let mut s = Self::default();
         s.ext4_to_self = Some(ext4_self as *const Ext4);

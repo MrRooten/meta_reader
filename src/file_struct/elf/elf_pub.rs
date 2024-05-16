@@ -20,7 +20,7 @@ pub struct ElfN_Phdr {
     pub p_flags: u32,
 }
 
-
+#[allow(clippy::enum_clike_unportable_variant)]
 pub enum ShdrType {
     SHT_NULL = 0,
     SHT_PROGBITS = 1,

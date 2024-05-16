@@ -49,10 +49,10 @@ impl Ext4 {
         let v = self.super_block.as_ptr();
         match unsafe { &*v } {
             Some(s) => {
-                return Ok(s)
+                Ok(s)
             },
             None => {
-                return Err(MRError::new("Can not parse super block"));
+                Err(MRError::new("Can not parse super block"))
             }
 
         }
@@ -82,10 +82,10 @@ impl Ext4 {
         let ret = self.set_super_block();
         match ret {
             Ok(o) => {
-                return Ok(o);
+                Ok(o)
             },
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
 
@@ -122,7 +122,7 @@ impl Ext4 {
             if (&gdt[0..4]).get_u32_le() == 0 {
                 break;
             }
-            result.push(GroupDescriptor::parse(gdt,&self));
+            result.push(GroupDescriptor::parse(gdt,self));
             i += descs_size;
             count += 1;
         }
@@ -130,10 +130,10 @@ impl Ext4 {
         let v = self.group_descriptors.as_ptr();
         match unsafe { &*v } {
             Some(o) => {
-                return Ok(o);
+                Ok(o)
             },
             None => {
-                return Err(MRError::new("Can not parse group descriptors"));
+                Err(MRError::new("Can not parse group descriptors"))
             }
         }
     }
@@ -158,10 +158,10 @@ impl Ext4 {
         let ret = self.set_descs();
         match ret {
             Ok(o) => {
-                return Ok(o);
+                Ok(o)
             },
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
     }
@@ -234,7 +234,7 @@ impl Ext4 {
         let offset = index * self.get_s_inode_size() as u32;
         let gdts = self.get_descs().unwrap();
         let gdt = &gdts.get(index as usize);
-        if let None = gdt {
+        if gdt.is_none() {
             return Err(MRError::new("No such a gdt"));
         }
 
@@ -253,7 +253,7 @@ impl Ext4 {
         let offset = index * self.get_s_inode_size() as u32;
         let gdts = self.get_descs().unwrap();
         let gdt = &gdts.get(index as usize);
-        if let None = gdt {
+        if gdt.is_none() {
             return Err(MRError::new("No such a gdt"));
         }
 
@@ -280,7 +280,7 @@ impl Ext4 {
                 return Ok(result as u32);
             }
         }
-        return Err(MRError::new("Not found inode"));
+        Err(MRError::new("Not found inode"))
     }
 
     pub fn is_64bit(&self) -> bool {
@@ -292,7 +292,7 @@ impl Ext4 {
     }
 
     pub fn get_inode_by_fname(&self, fname: &str) -> Result<Inode, MRError> {
-        let entries = fname.split("/").collect::<Vec<&str>>();
+        let entries = fname.split('/').collect::<Vec<&str>>();
         let entries = entries[1..].to_vec();
         let mut cur_inode = self.get_inode_by_id(2).unwrap();
         if fname.eq("/") {
@@ -304,7 +304,7 @@ impl Ext4 {
             count += 1;
             
 
-            if cur_inode.is_dir() == false  {
+            if !cur_inode.is_dir()  {
                 if count == e_len {
                     break;
                 }
@@ -319,10 +319,8 @@ impl Ext4 {
             };
 
             cur_inode = self.get_inode_by_id(inode).unwrap();
-            if fname.ends_with("/") {
-                if count == e_len - 1 {
-                    break;
-                }
+            if fname.ends_with('/') && count == e_len - 1 {
+                break;
             }
         }
         Ok(cur_inode)

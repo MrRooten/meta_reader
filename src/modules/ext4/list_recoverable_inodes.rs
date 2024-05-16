@@ -31,9 +31,9 @@ impl Ext4Module {
                 }
             };
             if dirs2.iter().all(|dir| {
-                dir.get_name().eq(i.get_name()) == false
+                !dir.get_name().eq(i.get_name())
             }) {
-                if i.get_name().len() == 0 {
+                if i.get_name().is_empty() {
                     continue;
                 }
 
@@ -42,9 +42,9 @@ impl Ext4Module {
                 let jbd2 = self.ext4.get_jbd2().unwrap();
                 let jbd2_inodes = jbd2.find_inodes(i.get_id());
                 let ext4 = i_to_m(&self.ext4);
-                if jbd2_inodes.len() != 0 {
+                if !jbd2_inodes.is_empty() {
                     for jbd2_inode in jbd2_inodes {
-                        f(i.get_id(), jbd2_inode, &i.get_name(), ext4);
+                        f(i.get_id(), jbd2_inode, i.get_name(), ext4);
                     }
                 }
                 continue;

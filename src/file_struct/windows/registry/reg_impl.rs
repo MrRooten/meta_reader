@@ -20,7 +20,7 @@ impl HiveBin {
         };
         let bs = Bytes::from(bs);
         let sign = bs[0..4].to_vec();
-        if String::from_utf8_lossy(&sign).eq("hbin") == false {
+        if !String::from_utf8_lossy(&sign).eq("hbin") {
             return Err(MRError::new("Not a valid Hive bin"));
         }
         let offset = (&bs[4..8]).get_u32_le();
@@ -38,7 +38,7 @@ impl HiveBin {
 impl RegFileHeader {
     pub fn from_bytes(bs: Bytes) -> Result<RegFileHeader,MRError> {
         let sign = bs[0..4].to_vec();
-        if String::from_utf8_lossy(&sign).eq("regf") == false {
+        if !String::from_utf8_lossy(&sign).eq("regf") {
             return Err(MRError::new(""));
         }
         let primary_seq_num = (&bs[4..8]).get_u32_le();
@@ -74,7 +74,7 @@ impl RegFile {
     }
 
     pub fn get_reader(&self) -> &MRFile {
-        return &self.file
+        &self.file
     }
 
 

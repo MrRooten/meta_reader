@@ -18,7 +18,7 @@ impl Ext4Module {
         let dirs = s.get_sub_dirs_raw().unwrap();
         let dirs2 = s.get_sub_dirs().unwrap();
         for dir in &dirs {
-            if dir.get_name().len() == 0 {
+            if dir.get_name().is_empty() {
                 continue;
             }
             let mut flag = false;
@@ -27,7 +27,7 @@ impl Ext4Module {
                     flag = true;
                 }
             }
-            if flag == true {
+            if flag {
                 continue;
             }
             vs.push(dir.clone())
@@ -37,7 +37,7 @@ impl Ext4Module {
             let jbd2 = self.ext4.get_jbd2().unwrap();
             let inodes = jbd2.find_inodes(sub_dir.get_id());
             for i in inodes {
-                if i.is_empty() == false {
+                if !i.is_empty() {
                     if result.contains(&sub_dir) {
                         continue;
                     }

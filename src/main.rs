@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, ptr::addr_of};
 
 use bytes::Bytes;
 use chrono::{Utc, TimeZone};
@@ -27,10 +27,10 @@ pub fn get_username(uid: u16) -> String {
                 }
             };
 
-            let iter = content.split("\n");
+            let iter = content.split('\n');
             let mut map: HashMap<u16, String> = HashMap::new();
             for i in iter {
-                let vs = i.split(":").collect::<Vec<&str>>();
+                let vs = i.split(':').collect::<Vec<&str>>();
                 if vs.len() < 3 {
                     continue;
                 }
@@ -38,7 +38,7 @@ pub fn get_username(uid: u16) -> String {
             }
             PASSWD = Some(map);
         }
-        let s = match &PASSWD {
+        let s = match &*addr_of!(PASSWD) {
             Some(o) => o,
             None => {
                 return "".to_string();
@@ -69,7 +69,6 @@ fn help(program_name: &ColoredString) {
     );
     println!("\t{} nsdr \\\\.\\C: http://.*/", program_name);
     println!("\t{} alias", program_name);
-    return;
 }
 fn main() {
     sigpipe::reset();
@@ -219,11 +218,11 @@ fn main() {
         if args.len() < 4 {
             return ;
         }
-        function = (&args[3]).to_string();
+        function = args[3].to_string();
         if args.len() >= 5 {
-            let options = args[4].split(",");
+            let options = args[4].split(',');
             for option in options {
-                let kv = option.split("=");
+                let kv = option.split('=');
                 let kv = kv.collect::<Vec<&str>>();
                 _f_args.insert(kv[0].trim().to_string(), kv[1].trim().to_string());
             }
@@ -252,13 +251,13 @@ fn main() {
                     println!("{}", name1);
                     //println!("\tname2: {}", name2);
                     println!("\tinode id: {}", id);
-                    if ext4.is_inode_taken(id) == false {
+                    if !ext4.is_inode_taken(id) {
                         if let Some(inode) = inode {
-                            println!("\tatime: {}", inode.get_atime().to_string());
-                            println!("\tctime: {}", inode.get_ctime().to_string());
-                            println!("\tmtime: {}", inode.get_mtime().to_string());
-                            println!("\tdtime: {}", inode.get_dtime().to_string());
-                            println!("\tbirth time: {}", inode.get_birth().to_string());
+                            println!("\tatime: {}", inode.get_atime());
+                            println!("\tctime: {}", inode.get_ctime());
+                            println!("\tmtime: {}", inode.get_mtime());
+                            println!("\tdtime: {}", inode.get_dtime());
+                            println!("\tbirth time: {}", inode.get_birth());
                             println!(
                                 "\tfile size: {}",
                                 filesize_to_human_string(inode.get_size() as usize)
@@ -290,13 +289,13 @@ fn main() {
                     output.push_str(&format!("{}\n", name));
                     //output.push_str(&format!("\tname2: {}\n", name2));
                     output.push_str(&format!("\tinode id: {}\n", id));
-                    output.push_str(&format!("\tatime: {}\n", inode.get_atime().to_string()));
-                    output.push_str(&format!("\tctime: {}\n", inode.get_ctime().to_string()));
-                    output.push_str(&format!("\tmtime: {}\n", inode.get_mtime().to_string()));
-                    output.push_str(&format!("\tdtime: {}\n", inode.get_dtime().to_string()));
+                    output.push_str(&format!("\tatime: {}\n", inode.get_atime()));
+                    output.push_str(&format!("\tctime: {}\n", inode.get_ctime()));
+                    output.push_str(&format!("\tmtime: {}\n", inode.get_mtime()));
+                    output.push_str(&format!("\tdtime: {}\n", inode.get_dtime()));
                     output.push_str(&format!(
                         "\tbirth time: {}\n",
-                        inode.get_birth().to_string()
+                        inode.get_birth()
                     ));
                     output.push_str(&format!(
                         "\tfile size: {}\n",
@@ -308,7 +307,6 @@ fn main() {
                         get_username(inode.get_uid())
                     ));
                     if last.eq(&output) {
-                        return;
                     } else {
                         println!("{}", output);
                         last = output;
@@ -321,12 +319,12 @@ fn main() {
                     println!("{}", name);
                     //println!("\tname2: {}", name2);
                     println!("\tinode id: {}", id);
-                    if ext4.is_inode_taken(id) == false {
-                        println!("\tatime: {}", inode.get_atime().to_string());
-                        println!("\tctime: {}", inode.get_ctime().to_string());
-                        println!("\tmtime: {}", inode.get_mtime().to_string());
-                        println!("\tdtime: {}", inode.get_dtime().to_string());
-                        println!("\tbirth time: {}", inode.get_birth().to_string());
+                    if !ext4.is_inode_taken(id) {
+                        println!("\tatime: {}", inode.get_atime());
+                        println!("\tctime: {}", inode.get_ctime());
+                        println!("\tmtime: {}", inode.get_mtime());
+                        println!("\tdtime: {}", inode.get_dtime());
+                        println!("\tbirth time: {}", inode.get_birth());
                         println!(
                             "\tfile size: {}",
                             filesize_to_human_string(inode.get_size() as usize)
@@ -348,13 +346,13 @@ fn main() {
                     output.push_str(&format!("{}\n", name));
                     //output.push_str(&format!("\tname2: {}\n", name2));
                     output.push_str(&format!("\tinode id: {}\n", id));
-                    output.push_str(&format!("\tatime: {}\n", inode.get_atime().to_string()));
-                    output.push_str(&format!("\tctime: {}\n", inode.get_ctime().to_string()));
-                    output.push_str(&format!("\tmtime: {}\n", inode.get_mtime().to_string()));
-                    output.push_str(&format!("\tdtime: {}\n", inode.get_dtime().to_string()));
+                    output.push_str(&format!("\tatime: {}\n", inode.get_atime()));
+                    output.push_str(&format!("\tctime: {}\n", inode.get_ctime()));
+                    output.push_str(&format!("\tmtime: {}\n", inode.get_mtime()));
+                    output.push_str(&format!("\tdtime: {}\n", inode.get_dtime()));
                     output.push_str(&format!(
                         "\tbirth time: {}\n",
-                        inode.get_birth().to_string()
+                        inode.get_birth()
                     ));
                     output.push_str(&format!(
                         "\tfile size: {}\n",
@@ -366,7 +364,6 @@ fn main() {
                         get_username(inode.get_uid())
                     ));
                     if last.eq(&output) {
-                        return;
                     } else {
                         println!("{}", output);
                         last = output;
@@ -401,7 +398,7 @@ fn main() {
             module.dump_usn(_f_args).unwrap();
         }
     } else if args[1].eq("test") {
-        
+        println!("test");
     } else if args[1].eq("alias") {
     } else {
         println!(
@@ -410,5 +407,4 @@ fn main() {
             "help".bright_red()
         );
     }
-    return;
 }

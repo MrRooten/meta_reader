@@ -1,5 +1,6 @@
 
 #[allow(invalid_reference_casting)]
+#[allow(clippy::mut_from_ref)]
 pub fn i_to_m<T>(reference: &T) -> &mut T {
     unsafe {
         let const_ptr = reference as *const T;
@@ -106,10 +107,10 @@ pub fn init() -> Result<(), MRError> {
 
     match result {
         Ok(_) => {
-            return Ok(());
+            Ok(())
         }
         Err(e) => {
-            return Err(MRError::new(&format!("{:?}", e)));
+            Err(MRError::new(&format!("{:?}", e)))
         }
     }
 }
@@ -120,5 +121,5 @@ pub fn can_debug() -> bool {
         return true;
     } }
 
-    return false;
+    false
 }

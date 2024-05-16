@@ -50,10 +50,10 @@ impl JournalBlockTag {
                 if bs.len() < 32 {
                     return Err(MRError::new("Parse size error"));
                 }
-                let uuid = (&bs[0xc..0xc + 16]).to_vec();
+                let uuid = bs[0xc..0xc + 16].to_vec();
                 return Ok(Self {
                     blocknr,
-                    blocknr_high: blocknr_high,
+                    blocknr_high,
                     size: 32,
                     uuid,
                     flag: flags,
@@ -84,10 +84,10 @@ impl JournalBlockTag {
                     if bs.len() < 28 {
                         return Err(MRError::new("Parse size error"));
                     }
-                    let uuid = (&bs[12..12 + 16]).to_vec();
+                    let uuid = bs[12..12 + 16].to_vec();
                     return Ok(Self {
                         blocknr,
-                        blocknr_high: blocknr_high,
+                        blocknr_high,
                         size: 28,
                         uuid,
                         flag: flags as u32,
@@ -109,7 +109,7 @@ impl JournalBlockTag {
                     if bs.len() < 24 {
                         return Err(MRError::new("Parse size error"));
                     }
-                    let uuid = (&bs[8..8 + 16]).to_vec();
+                    let uuid = bs[8..8 + 16].to_vec();
                     return Ok(Self {
                         blocknr,
                         blocknr_high: 0,
@@ -120,7 +120,7 @@ impl JournalBlockTag {
                 }
             }
         }
-        return Err(MRError::new("Error size"));
+        Err(MRError::new("Error size"))
     }
 }
 
@@ -170,7 +170,7 @@ impl Journal {
         Ok(Self {
             super_block: sb,
             ext4: Some(ext4 as *const Ext4),
-            offset: offset,
+            offset,
         })
     }
 
@@ -214,7 +214,7 @@ impl Journal {
                     desc_block: desc,
                     data_blocks: vs,
                     revocation_blocks: Vec::default(),
-                    commit_block: commit_block,
+                    commit_block,
                 };
                 f(&transaction);
                 base_offset += (count + 2) * self.super_block.s_blocksize as usize;
@@ -280,13 +280,9 @@ impl Journal {
             for block in data_blocks {
                 let block_id = block.block_id;
                 let num_blocks = ext4.get_s_inodes_per_group() as usize * 0x100 / ext4.get_block_size();
-                if gdts.iter().any(|x| {
-                    if block_id >= x.get_inode_table() && block_id <= x.get_inode_table() + num_blocks as u64 {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                }) == false {
+                if !gdts.iter().any(|x| {
+                    block_id >= x.get_inode_table() && block_id <= x.get_inode_table() + num_blocks as u64
+                }) {
                     continue;
                 }
                 let mut base_addr = 0;
@@ -336,12 +332,12 @@ impl JournalSuperBlock {
             s_blocksize,
             s_maxlen,
             s_first,
-            s_errno: s_errno,
-            s_max_transaction: s_max_transaction,
-            s_max_trans_data: s_max_trans_data,
-            s_feature_compat: s_feature_compat,
-            s_feature_incompat: s_feature_incompat,
-            s_feature_ro_compat: s_feature_ro_compat,
+            s_errno,
+            s_max_transaction,
+            s_max_trans_data,
+            s_feature_compat,
+            s_feature_incompat,
+            s_feature_ro_compat,
         }
     }
 
@@ -364,7 +360,7 @@ impl JournalDataBlock {
     pub fn new(block_id: u64, range: Range<usize>) -> Self {
         Self {
             range,
-            block_id: block_id,
+            block_id,
         }
     }
 

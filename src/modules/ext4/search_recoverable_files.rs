@@ -31,9 +31,9 @@ impl Ext4Module {
         let mut stack = vec![];
         stack.push((path.to_string(),cur_inode));
 
-        while stack.len() > 0 {
-            let s = stack.pop().unwrap();
-            if s.1.is_dir() == false {
+        while let Some(s) = stack.pop() {
+            
+            if !s.1.is_dir() {
                 continue;
             }
 
@@ -47,27 +47,27 @@ impl Ext4Module {
                     }
                 };
                 if dirs2.iter().all(|dir| {
-                    dir.get_name().eq(i.get_name()) == false
+                    !dir.get_name().eq(i.get_name())
                 }) {
-                    if i.get_name().len() == 0 {
+                    if i.get_name().is_empty() {
                         continue;
                     }
 
                     
                     let mut name = s.0.clone();
-                    if name.ends_with("/") == false {
-                        name.push_str("/");
+                    if !name.ends_with('/') {
+                        name.push('/');
                     }
-                    name.push_str(&i.get_name());
+                    name.push_str(i.get_name());
                     let mut name2 = s.0.clone();
-                    if name2.ends_with("/") == false {
-                        name2.push_str("/");
+                    if !name2.ends_with('/') {
+                        name2.push('/');
                     }
                     name2.push_str(i.get_zero_end_name());
                     let jbd2 = self.ext4.get_jbd2().unwrap();
                     let jbd2_inodes = jbd2.find_inodes(i.get_id());
                     let ext4 = &mut self.ext4;
-                    if jbd2_inodes.len() != 0 {
+                    if !jbd2_inodes.is_empty() {
                         for jbd2_inode in jbd2_inodes {
                             f(i.get_id(), jbd2_inode, &name, &name2, ext4);
                         }
@@ -75,7 +75,7 @@ impl Ext4Module {
                     continue;
                 }
 
-                if inode.is_dir() == false {
+                if !inode.is_dir() {
                     continue;
                 }
                 for x in &dirs2 {
@@ -86,10 +86,10 @@ impl Ext4Module {
                         continue;
                     }
                     let mut name = s.0.clone();
-                    if name.ends_with("/") == false {
-                        name.push_str("/");
+                    if !name.ends_with('/') {
+                        name.push('/');
                     }
-                    name.push_str(&x.get_name());
+                    name.push_str(x.get_name());
                     stack.push((name, self.ext4.get_inode_by_id(x.get_id()).unwrap()));
                 }
                 

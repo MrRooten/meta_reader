@@ -1,7 +1,7 @@
 use bytes::{Bytes, Buf};
 use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 
-use super::elf64::{get_str_to_zero};
+use super::elf64::get_str_to_zero;
 use super::elf_pub::{ElfN_Ehdr,ElfN_Phdr, ShdrType};
 
 #[derive(Default, Debug)]
@@ -54,7 +54,7 @@ impl Elf32_Ehdr {
             return "ET_NUM";
         }
 
-        return "";
+        ""
     }
 
     fn get_machine(&self) -> String {
@@ -164,10 +164,10 @@ impl Elf32_Shdr {
 
     pub fn get_name(&self) -> &String {
         unsafe {
-            if self.name.len() != 0 {
+            if !self.name.is_empty() {
                 return &self.name;
             }
-            let data = &*(*self.self_elf.unwrap()).get_shtab();
+            let data = (*self.self_elf.unwrap()).get_shtab();
             let mut index = self.sh_name as usize;
             let start = index;
             while index < data.len() {
@@ -178,8 +178,8 @@ impl Elf32_Shdr {
                 }
             }
 
-            i_to_m(self).name = std::str::from_utf8(&data[start..index].to_vec())
-                .unwrap_or(&"None".to_string()).to_string();
+            i_to_m(self).name = std::str::from_utf8(&data[start..index])
+                .unwrap_or("None").to_string();
             &self.name
         }
     }
@@ -192,14 +192,14 @@ impl Elf32_Shdr {
 
     pub fn get_data(&self) -> &Bytes {
         unsafe {
-            if self.data.len() != 0 {
+            if !self.data.is_empty() {
                 return &self.data;
             }
             let elf = self.get_elf();
             let data = elf.get_elf();
             //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
             i_to_m(self).data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
-            return &self.data;
+            &self.data
         }
     }
 }
@@ -223,7 +223,7 @@ impl Elf32_Sym {
             st_info : (&bytes[12..13]).get_u8(),
             st_other : (&bytes[13..14]).get_u8(),
             st_shndx  : (&bytes[14..16]).get_u16_le(),
-            self_elf  : Some(elf as *const ELF32)
+            self_elf  : Some(elf)
         }
     }
 
@@ -231,7 +231,7 @@ impl Elf32_Sym {
         unsafe {
             let elf = &(*self.self_elf.unwrap());
             let str_data = elf.get_strtab_data();
-            return get_str_to_zero(&str_data, self.st_name as usize).unwrap_or("".to_string());
+            get_str_to_zero(str_data, self.st_name as usize).unwrap_or("".to_string())
         }
     }
 
@@ -252,19 +252,19 @@ pub struct ELF32 {
 
 impl ELF32 {
     fn get_phnum(&self) -> usize {
-        return self.ehdr._ehdr.e_phnum as usize;
+        self.ehdr._ehdr.e_phnum as usize
     }
 
     fn get_phsize(&self) -> usize {
-        return self.ehdr._ehdr.e_phentsize as usize;
+        self.ehdr._ehdr.e_phentsize as usize
     }
 
     fn get_shnum(&self) -> usize {
-        return self.ehdr._ehdr.e_shnum as usize;
+        self.ehdr._ehdr.e_shnum as usize
     }
 
     fn get_shsize(&self) -> usize {
-        return self.ehdr._ehdr.e_shentsize as usize;
+        self.ehdr._ehdr.e_shentsize as usize
     }
 
     pub fn get_shtab(&self) -> &Vec<u8> {
@@ -276,11 +276,11 @@ impl ELF32 {
     }
 
     pub fn get_elf(&self) -> &MRFile {
-        return &self.elf_file;
+        &self.elf_file
     }
 
     pub fn get_shdrs(&self) -> &Vec<Elf32_Shdr> {
-        return &self.shdrs;
+        &self.shdrs
     }
 
     pub fn get_symtab(&self) -> Result<&Elf32_Shdr,MRError> {
@@ -313,7 +313,7 @@ impl ELF32 {
     }
 
     pub fn get_strtab_data(&self) -> &Vec<u8> {
-        if self.symstrtab.len() != 0 {
+        if !self.symstrtab.is_empty() {
             return &self.symstrtab;
         }
         let mut result: Vec<u8> = Vec::default();
@@ -330,7 +330,7 @@ impl ELF32 {
         let mr_f = MRFile::new(file2.as_str()).unwrap();
         elf.ehdr = Elf32_Ehdr::new(&Bytes::from(mr_f.read_n(0, 52).unwrap()));
         let phdr_offset = elf.ehdr.get_phdr_offset().0 as usize;
-        let mut start = 0 as usize;
+        let mut start = 0_usize;
         for _ in 0..elf.get_phnum() {
             let phdr_bytes = mr_f.read_n(phdr_offset + start, elf.get_phsize()).unwrap();
             elf.phdrs.push(Elf32_Phdr::new(&Bytes::from(phdr_bytes), &elf));

@@ -7,10 +7,13 @@ pub mod deleted_files;
 pub mod search_disk;
 pub mod search_files_content;
 pub mod dump_usn;
+
+type NtfsFunc = Box<dyn Fn(HashMap<String,String>)>;
+
 pub struct NtfsModule {
     ntfs    : Ntfs,
     file    : String,
-    func    : HashMap<String,Box<dyn Fn(HashMap<String,String>)>>
+    func    : HashMap<String,NtfsFunc>
 }
 
 impl NtfsModule {
@@ -24,7 +27,7 @@ impl NtfsModule {
             }
         };
         Ok(Self {
-            ntfs: ntfs,
+            ntfs,
             file: s,
             func: Default::default(),
         })

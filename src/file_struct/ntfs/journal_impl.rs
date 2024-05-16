@@ -26,14 +26,7 @@ impl USNChangeJournalEntry {
     }
 
     pub fn get_time_string(&self) -> Option<String> {
-        match self.update_date.to_native_date() {
-            Some(s) => {
-                Some(s.to_string())
-            },
-            None => {
-                None
-            }
-        }
+        self.update_date.to_native_date().map(|s| s.to_string())
     }
 
     pub fn get_index(&self) -> u64 {
@@ -87,7 +80,7 @@ impl USNChangeJournalEntry {
             }
         }
 
-        return reason.join("|");
+        reason.join("|")
     }
 
     pub fn parse(bs: Bytes) -> Result<Self, MRError> {
@@ -125,7 +118,7 @@ impl USNChangeJournalEntry {
                 }
             };
 
-            let name = vec_u8_to_utf16string(&name.to_vec());
+            let name = vec_u8_to_utf16string(&name);
             return Ok(USNChangeJournalEntry {
                 entry_size: size,
                 major_version,
@@ -172,7 +165,7 @@ impl USNChangeJournalEntry {
                     bs.slice(name_offset as usize..name_offset as usize + name_size as usize)
                 }
             };
-            let name = vec_u8_to_utf16string(&name.to_vec());
+            let name = vec_u8_to_utf16string(&name);
             return Ok(USNChangeJournalEntry {
                 entry_size: size,
                 major_version,
@@ -190,16 +183,16 @@ impl USNChangeJournalEntry {
                 name,
             });
         }
-        return Err(MRError::new(
+        Err(MRError::new(
             "Not recognize the version of USNChangeJournal",
-        ));
+        ))
     }
 }
 
 impl USNChangeJournal {
     pub fn from_mft(mft: MFTEntry, ntfs: &Ntfs) -> Result<Self, MRError> {
         Ok(USNChangeJournal {
-            mft: mft,
+            mft,
             ntfs: Some(ntfs),
         })
     }
@@ -237,14 +230,14 @@ impl USNChangeJournal {
                     continue;
                 }
             };
-            if handle(&v) == false {
+            if !handle(&v) {
                 break;
             }
             offset += entry_size as usize;
             i += 1;
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn get_data_runs(&self) -> Result<Vec<DataDescriptor>, MRError> {
@@ -348,7 +341,7 @@ impl USNChangeJournal {
                 last_addr -= data.datasize;
                 continue;
             }
-            let buffer_data: Vec<u8>;
+            
             let read_size = {
                 if n < data.datasize as usize {
                     n
@@ -361,9 +354,9 @@ impl USNChangeJournal {
             let start_addr = data.start_addr - __offset;
             let tmp_data = ntfs
                 .reader
-                .read_n(start_addr as usize, __offset as usize + read_size as usize)
+                .read_n(start_addr as usize, __offset as usize + read_size)
                 .unwrap();
-            buffer_data = tmp_data[__offset as usize..].to_vec();
+            let buffer_data: Vec<u8> = tmp_data[__offset as usize..].to_vec();
 
             if last_addr < buffer_data.len() as u64 && last_n > buffer_data.len() as u64 - last_addr
             {
@@ -395,7 +388,7 @@ impl USNChangeJournal {
             }
         };
 
-        return USNChangeJournalEntry::parse(Bytes::from(data));
+        USNChangeJournalEntry::parse(Bytes::from(data))
     }
 
     pub fn read_last(&mut self) -> Result<Vec<USNChangeJournalEntry>, MRError> {
@@ -432,7 +425,7 @@ impl USNChangeJournal {
             offset += entry_size as usize;
 
         }
-        return Ok(result);
+        Ok(result)
     }
 
     pub fn process_last<F>(&mut self,mut f: F) -> Result<(), MRError> 
@@ -465,13 +458,13 @@ impl USNChangeJournal {
                     continue;
                 }
             };
-            if f(&v) == false {
+            if !f(&v) {
                 break;
             }
             offset += entry_size as usize;
 
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn read_n_entry(&mut self, n: usize) -> Result<Vec<USNChangeJournalEntry>, MRError> {
@@ -501,6 +494,6 @@ impl USNChangeJournal {
             i += 1;
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }

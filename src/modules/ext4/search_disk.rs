@@ -62,7 +62,7 @@ impl Ext4Module {
         let mut _inodes: Vec<(Range<usize>, u32)> = vec![];
         println!("Loading inodes....");
         _inodes = cache_inodes(i_to_m(&self.ext4), |offset, entry| {
-            return true;
+            true
         });
 
         Ok(())

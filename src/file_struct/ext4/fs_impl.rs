@@ -45,7 +45,7 @@ impl File for Inode {
 
         }
 
-        return Ok(Bytes::from(result));
+        Ok(Bytes::from(result))
     }
 
     fn get_size(&self) -> Result<usize, MRError> {

@@ -8,6 +8,12 @@ pub struct CliEnv {
     path        : String
 }
 
+impl Default for CliEnv {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CliEnv {
     pub fn new() -> CliEnv {
         Self { 
@@ -50,13 +56,13 @@ impl CliEnv {
     }
 
     pub fn get_cur_path(&self) -> &String {
-        return &self.path
+        &self.path
     }
 }
 
 
 pub fn process_line(cmdline: &str, env: &mut CliEnv) {
-    cmdline.split(" ");
+    cmdline.split(' ');
     env.add_count()
     
 }

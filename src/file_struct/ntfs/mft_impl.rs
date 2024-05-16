@@ -56,7 +56,7 @@ impl MFTEntry {
                 }
             }
         }
-        return None;
+        None
     }
 
     pub fn get_streams_list(&self) -> Option<Vec<String>> {
@@ -143,7 +143,7 @@ impl MFTEntry {
             index = mft.get_parent_index();
         }
         names.reverse();
-        return Some(names.join("\\"));
+        Some(names.join("\\"))
     }
 
     pub fn filename_creation_time(&self) -> Option<DateTime<Local>> {
@@ -282,7 +282,7 @@ impl MFTEntry {
             return Some(attr.common.get_data_size());
         }
 
-        return None;
+        None
     }
 
     pub fn get_data(&self) -> Bytes {
@@ -323,7 +323,7 @@ impl MFTEntry {
                 last_addr -= data.datasize;
                 continue;
             }
-            let buffer_data: Vec<u8>;
+            
             let read_size = {
                 if n < data.datasize as usize {
                     n
@@ -336,9 +336,9 @@ impl MFTEntry {
             let start_addr = data.start_addr - __offset;
             let tmp_data = ntfs
                 .reader
-                .read_n(start_addr as usize, __offset as usize + read_size as usize)
+                .read_n(start_addr as usize, __offset as usize + read_size)
                 .unwrap();
-            buffer_data = tmp_data[__offset as usize..].to_vec();
+            let buffer_data: Vec<u8> = tmp_data[__offset as usize..].to_vec();
 
             if last_addr < buffer_data.len() as u64 && last_n > buffer_data.len() as u64 - last_addr
             {
@@ -401,7 +401,7 @@ impl MFTEntry {
                     let start_addr = data.start_addr - __offset;
                     let tmp_data = ntfs
                         .reader
-                        .read_n(start_addr as usize, __offset as usize + read_size as usize)
+                        .read_n(start_addr as usize, __offset as usize + read_size)
                         .unwrap();
                     let buffer_data = tmp_data[__offset as usize..].to_vec();
 
@@ -448,8 +448,8 @@ impl MFTEntry {
         mft_base: u64,
         index: u64,
     ) -> Result<MFTEntry, MRError> {
-        let sig = String::from_utf8_lossy((&bs[0..4]));
-        if sig.eq("BAAD") == false && sig.eq("FILE") == false {
+        let sig = String::from_utf8_lossy(&bs[0..4]);
+        if !sig.eq("BAAD") && !sig.eq("FILE") {
             return Err(MRError::new("Not a valid MFT entry"));
         }
 
@@ -509,14 +509,14 @@ impl MFTEntry {
             number_fix_up_values,
             journal_sequence_number,
             sequence,
-            reference_count: reference_count,
+            reference_count,
             attributes_offset,
             entry_flags,
             used_size,
             total_size,
-            map_attr_chains: map_attr_chains,
+            map_attr_chains,
             ntfs: Some(ntfs),
-            index: index,
+            index,
             parent_index: -1,
         })
     }
@@ -588,15 +588,14 @@ impl FileItem {
     }
 }
 
-pub fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
+pub fn vec_u8_to_utf16string(bytes: &[u8]) -> String {
     let title: Vec<u16> = bytes
         .chunks_exact(2)
-        .into_iter()
         .map(|a| u16::from_ne_bytes([a[0], a[1]]))
         .collect();
     let title = title.as_slice();
-    let title = String::from_utf16_lossy(title);
-    title
+    
+    String::from_utf16_lossy(title)
 }
 
 impl TryInto<Value10_StandardInfomation> for MFTValue {
@@ -604,9 +603,9 @@ impl TryInto<Value10_StandardInfomation> for MFTValue {
 
     fn try_into(self) -> Result<Value10_StandardInfomation, Self::Error> {
         if let MFTValue::StdInfo(s) = self {
-            return Ok(s);
+            Ok(s)
         } else {
-            return Err(MRError::new("Not StandardInformation"));
+            Err(MRError::new("Not StandardInformation"))
         }
     }
 }
@@ -629,7 +628,7 @@ impl MFTValue {
                 }
             };
 
-            return Ok(MFTValue::StdInfo(info));
+            Ok(MFTValue::StdInfo(info))
         } else if attr_type == 0x20 {
             let attrlist = match Value20_AttributeList::parse(bs, ntfs, is_nonresident) {
                 Ok(o) => o,
@@ -686,8 +685,8 @@ impl FileTime {
         let low = ((s >> 32) as u32).swap_bytes();
         let high = ((s % (2 << 32)) as u32).swap_bytes();
         Self {
-            low: low,
-            high: high,
+            low,
+            high,
         }
     }
     fn to_seconds(&self, t: u64) -> Option<u64> {
@@ -695,17 +694,17 @@ impl FileTime {
         if s < 11644473600 {
             return None;
         }
-        return Some(s - 11644473600);
+        Some(s - 11644473600)
     }
 
     pub fn get_timestamp(&self) -> u64 {
-        let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
+        let t = (self.high as u64) * num::pow(2_u64, 32) as u64 + self.low as u64;
         //NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap();
-        let timestamp = self.to_seconds(t).unwrap();
-        timestamp
+        
+        self.to_seconds(t).unwrap()
     }
     pub fn to_native_date(&self) -> Option<DateTime<Local>> {
-        let t = (self.high as u64) * num::pow(2 as u64, 32) as u64 + self.low as u64;
+        let t = (self.high as u64) * num::pow(2_u64, 32) as u64 + self.low as u64;
         //NaiveDateTime::from_timestamp_opt(self.to_seconds(t) as i64, 0).unwrap();
         let timestamp = match self.to_seconds(t) {
             Some(s) => s,
@@ -765,7 +764,7 @@ impl Value10_StandardInfomation {
         //         });
         //     }
         // }
-        return Ok(Self {
+        Ok(Self {
             file_create_time,
             file_change_time,
             mft_change_time,
@@ -775,7 +774,7 @@ impl Value10_StandardInfomation {
             security_id: None,
             quota_charged: None,
             update_sequence_num: None,
-        });
+        })
     }
 }
 
@@ -814,8 +813,7 @@ impl Value20_AttributeList {
                 let name = vec_u8_to_utf16string(
                     &bs.slice(
                         i + name_offset as usize..i + name_offset as usize + 2 * name_size as usize,
-                    )
-                    .to_vec(),
+                    ),
                 );
                 i += size as usize;
                 let v20 = V20Attr {
@@ -929,7 +927,7 @@ impl Value70_VolumeInfomation {
 
 impl Value80_Data {
     pub fn get_datas(&self) -> &Vec<DataDescriptor> {
-        return &self.datas;
+        &self.datas
     }
     pub fn parse(
         index: u64,
@@ -939,14 +937,14 @@ impl Value80_Data {
         base: u64,
         common: &CCommon,
     ) -> Result<Self, MRError> {
-        if is_nonresident == false {
+        if !is_nonresident {
             let offset = common.get_data_offset() as u64;
             let filesize = common.get_data_size() as u64;
 
             return Ok(Self {
                 datas: vec![DataDescriptor {
                     datasize: filesize,
-                    start_addr: base as u64 + offset,
+                    start_addr: base + offset,
                 }],
             });
         }
@@ -967,7 +965,7 @@ impl Value80_Data {
             //     continue;
             // }
             if index + 1 + filesize_len as usize > bs.len() {
-                fs::write("./error_data80", bs.to_vec());
+                fs::write("./error_data80", &bs);
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
             let filesize = match get_le_u64(bs.slice(index + 1..index + 1 + filesize_len as usize))
@@ -975,7 +973,7 @@ impl Value80_Data {
                 Some(s) => s,
                 None => {
                     //break;
-                    fs::write("./error_data80", bs.to_vec());
+                    fs::write("./error_data80", &bs);
                     return Err(MRError::new(
                         "too many bytes in Value80_Data::new get filesize",
                     ));
@@ -984,13 +982,13 @@ impl Value80_Data {
 
             let _s = (index + 1 + filesize_len as usize);
             if _s + start_addr_len as usize > bs.len() {
-                fs::write("./error_data80", bs.to_vec());
+                fs::write("./error_data80", &bs);
                 return Err(MRError::new("Value80_Data::new data not enough"));
             }
             let mut offset = match get_le_u64(bs.slice(_s.._s + start_addr_len as usize)) {
                 Some(o) => o,
                 None => {
-                    fs::write("./error_data80", bs.to_vec());
+                    fs::write("./error_data80", &bs);
                     return Err(MRError::new(
                         "too many bytes in Value80_Data::new get offset",
                     ));
@@ -1011,7 +1009,7 @@ impl Value80_Data {
                 cluster_number += offset;
             }
             if filesize.checked_mul(ntfs.get_cluster_size()).is_none() {
-                fs::write("./error_data80", bs.to_vec());
+                fs::write("./error_data80", &bs);
                 return Err(MRError::new("Value80_Data::new filesize overflow"));
             }
             let data = DataDescriptor {
@@ -1023,7 +1021,7 @@ impl Value80_Data {
                 .checked_mul(ntfs.get_cluster_size())
                 .is_none()
             {
-                fs::write("./target/dump", bs.to_vec());
+                fs::write("./target/dump", &bs);
                 return Err(MRError::new("Value80_Data::new start_addr overflow"));
             }
             let data = DataDescriptor {
@@ -1123,7 +1121,7 @@ impl Value90_IndexRoot {
             index += size as usize;
         }
         Ok(Self {
-            root_header: root_header,
+            root_header,
             node_header,
             values,
         })
@@ -1192,13 +1190,16 @@ impl IndexValue {
 
 impl ValueA0_IndexAlloction {
     pub fn new(bs: Bytes, ntfs: &Ntfs, is_nonresident: bool) -> Result<Self, MRError> {
-        if is_nonresident == false {
+        if !is_nonresident {
             let entry_header = IndexEntryHeader::parse(bs.slice(0..24), ntfs).unwrap();
             let node_header = IndexNodeHeader::parse(bs.slice(24..40), ntfs).unwrap();
             let value_offset = node_header.index_values_offset + 24;
             let mut index = 0;
             let mut values = Vec::new();
-            while index < node_header.index_node_size as usize {
+            loop {
+                if index < node_header.index_node_size as usize {
+                    break;
+                }
                 let size_offset = index + value_offset as usize + 8;
                 let size = (&bs[size_offset..size_offset + 4]).get_u32_le();
                 if size == 0 {
@@ -1239,8 +1240,8 @@ impl ValueA0_IndexAlloction {
                 }
             };
             Ok(Self {
-                offset: offset,
-                size: size,
+                offset,
+                size,
                 node_header: None,
                 values: None,
                 ntfs: Some(ntfs),
@@ -1250,7 +1251,7 @@ impl ValueA0_IndexAlloction {
     }
 
     pub fn is_init(&self) -> bool {
-        return self.values.is_some();
+        self.values.is_some()
     }
 
     pub fn init_value(&mut self) {
@@ -1286,7 +1287,7 @@ impl ValueA0_IndexAlloction {
             let mut index = node_header.index_values_offset as usize;
 
             while index < node_header.index_node_size as usize {
-                let size_offset = index as usize + 8;
+                let size_offset = index + 8;
                 let size = (&node_bs[size_offset..size_offset + 4]).get_u16_le();
                 if size == 0 {
                     break;
@@ -1352,9 +1353,9 @@ impl CResident {
         let data_offset = (&bs[4..6]).get_u16_le();
         let indexed_flag = (&bs[6..7]).get_u8();
         Self {
-            data_size: data_size,
-            data_offset: data_offset,
-            indexed_flag: indexed_flag,
+            data_size,
+            data_offset,
+            indexed_flag,
             padding: 0,
         }
     }
@@ -1402,7 +1403,7 @@ impl CCommon {
             return c.compression_unit_size > 0;
         }
 
-        return false;
+        false
     }
 
     pub fn get_compress_unit_size(&self) -> usize {
@@ -1410,7 +1411,7 @@ impl CCommon {
             return c.compression_unit_size as usize;
         }
 
-        return 0;
+        0
     }
 }
 
@@ -1423,7 +1424,7 @@ impl MFTAttribute {
         base_addr: u64,
     ) -> Result<Self, MRError> {
         let offset = base_of_mft as usize;
-        let attr_type = (&bs[offset + 0..offset + 4]).get_u32_le();
+        let attr_type = (&bs[offset..offset + 4]).get_u32_le();
         let size = (&bs[offset + 4..offset + 6]).get_u16_le();
         let non_resident_flag = (&bs[offset + 8..offset + 9]).get_u8();
         let name_length = (&bs[offset + 9..offset + 10]).get_u8();
@@ -1432,9 +1433,9 @@ impl MFTAttribute {
         let attr_id = (&bs[offset + 14..offset + 16]).get_u16_le();
         let attr_name = bs.slice(
             (offset + name_offset as usize)
-                ..((offset + name_offset as usize + 2 * name_length as usize) as usize),
+                ..(offset + name_offset as usize + 2 * name_length as usize),
         );
-        let attr_name = vec_u8_to_utf16string(&attr_name.to_vec());
+        let attr_name = vec_u8_to_utf16string(&attr_name);
 
         let common: CCommon;
         let base: usize;
@@ -1448,18 +1449,14 @@ impl MFTAttribute {
             common = CCommon::Resident(c);
         }
         let data_len = common.get_data_size();
-        let value: MFTValue;
-        if data_len == 0 {
-            value = MFTValue::None;
-        } else {
-            let is_nonresident: bool;
-            if non_resident_flag == 1 {
-                is_nonresident = true;
-            } else {
-                is_nonresident = false;
-            }
 
-            value = match MFTValue::parse(
+        let value = if data_len == 0 {
+            MFTValue::None
+        } else {
+            
+            let is_nonresident: bool = non_resident_flag == 1;
+
+            match MFTValue::parse(
                 attr_type,
                 bs.slice(offset + base..offset + size as usize),
                 ntfs,
@@ -1470,23 +1467,24 @@ impl MFTAttribute {
             ) {
                 Ok(o) => o,
                 Err(e) => {
-                    fs::write("./error_value", bs.to_vec());
+                    fs::write("./error_value", bs);
                     return Err(e);
                 }
-            };
-        }
+            }
+            
+        };
 
         Ok(Self {
             mft_type: attr_type,
             length: size,
-            non_resident_flag: non_resident_flag,
+            non_resident_flag,
             name_length,
             name_offset,
             attribute_flags: data_flags,
             identity: attr_id,
-            common: common,
-            value: value,
-            attr_name: attr_name,
+            common,
+            value,
+            attr_name,
         })
     }
 

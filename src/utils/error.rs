@@ -14,7 +14,7 @@ impl MRError {
     pub fn new_with_kind(msg: &str, kind: MRErrKind) -> MRError {
         MRError {
             detail: Some(msg.to_string()),
-            kind: kind,
+            kind,
             ..Default::default()
         }
     }
@@ -40,14 +40,14 @@ impl fmt::Display for MRError {
             return write!(f, "{}: {:?}", self.kind, err)
         }
 
-        return write!(f, "{}: Nothing", self.kind)
+        write!(f, "{}: Nothing", self.kind)
     }
 }
 
 impl Error for MRError {
     fn description(&self) -> &str {
         match &self.detail {
-            Some(s) => &s,
+            Some(s) => s,
             None => {
                 ""
             }

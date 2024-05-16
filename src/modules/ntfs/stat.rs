@@ -8,27 +8,28 @@ impl NtfsModule {
     pub fn stat(&mut self, args: HashMap<String,String>) -> Result<(),MRError> {
         let path = args.get("path");
         let index = args.get("index");
-        let mft: MFTEntry;
+
         if path.is_none() && index.is_none() {
             return Err(MRError::new("must set path=${path} or index=${index}"));
         }
 
-        if path.is_some() {
-            mft = match self.ntfs.get_mft_by_path(path.unwrap()) {
+        let mft = if path.is_some() {
+            match self.ntfs.get_mft_by_path(path.unwrap()) {
                 Ok(o) => o,
                 Err(e) => {
                     return Err(e);
                 }
-            };
+            }
+
         } else {
             let index = index.unwrap().parse::<u64>().unwrap();
-            mft = match self.ntfs.get_mft_entry_by_index(index) {
+            match self.ntfs.get_mft_entry_by_index(index) {
                 Some(o) => o,
                 None => {
                     return Err(MRError::new("not found index"));
                 }
-            };
-        }
+            }
+        };
         
         println!("filename: {:?}",mft.filename());
         println!("\tindex: {:?}", mft.get_index());

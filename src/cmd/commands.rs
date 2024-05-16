@@ -9,7 +9,7 @@ pub trait Command {
 
     fn full_name(&self) -> &str;
 
-    fn run(&self, args: &Vec<Argument>) -> Result<(), MRError>;
+    fn run(&self, args: &[Argument]) -> Result<(), MRError>;
 
     fn help(&self) -> String;
 
@@ -22,10 +22,15 @@ pub struct CmdMgr {
     cmds    : Commands
 }
 
+impl Default for CmdMgr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CmdMgr {
     pub fn new() -> CmdMgr {
-        let mut result = Vec::<Box<dyn Command>>::new();
-        result.push(Box::new(Exit{}));
+        let result: Vec<Box<dyn Command>> = vec![Box::new(Exit{})];
         CmdMgr { cmds: result }
     }
 
@@ -34,13 +39,7 @@ impl CmdMgr {
     }
 
     pub fn get_proc(&self, name: &str) -> Option<&BoxCommand> {
-        for cmd in &self.cmds {
-            if cmd.full_name().eq(name) || cmd.short_name().eq(name) {
-                return Some(cmd);
-            }
-        }
-
-        return None;
+        self.cmds.iter().find(|&cmd| cmd.full_name().eq(name) || cmd.short_name().eq(name))
     }
     
 }
@@ -58,7 +57,7 @@ impl Command for Exit {
         "exit"
     }
 
-    fn run(&self, args: &Vec<Argument>) -> Result<(), MRError> {
+    fn run(&self, _args: &[Argument]) -> Result<(), MRError> {
         process::exit(0);
     }
 
@@ -84,7 +83,7 @@ impl Command for Help {
         "help"
     }
 
-    fn run(&self, args: &Vec<Argument>) -> Result<(), MRError> {
+    fn run(&self, _args: &[Argument]) -> Result<(), MRError> {
         todo!()
     }
 
@@ -110,8 +109,8 @@ impl Command for CreateWork {
         "create_work"
     }
 
-    fn run(&self, args: &Vec<Argument>) -> Result<(), MRError> {
-        if args.len() < 1 {
+    fn run(&self, args: &[Argument]) -> Result<(), MRError> {
+        if args.is_empty() {
             return Err(MRError::new("Must set the workplace name"));
         }
         let name = args[0].get_name();
@@ -119,7 +118,7 @@ impl Command for CreateWork {
             let output = format!("'{}' already existed", name);
             return Err(MRError::new(&output));
         }
-        let path = format!("{}",name);
+        let path = name.to_string();
         match fs::create_dir(path) {
             Ok(_) => {
 
@@ -128,11 +127,11 @@ impl Command for CreateWork {
                 return Err(MRError::from(Box::new(e)));
             }
         };
-        return Ok(())
+        Ok(())
     }
 
     fn help(&self) -> String {
-        return "create_work ${name}".to_string()
+        "create_work ${name}".to_string()
     }
 
     fn info(&self) -> String {

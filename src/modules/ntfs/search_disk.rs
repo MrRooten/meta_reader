@@ -11,7 +11,7 @@ use crate::{
     utils::{funcs::i_to_m, MRError},
 };
 
-use super::{NtfsModule, MatchType};
+use super::{MatchType, NtfsModule};
 use memchr::memmem;
 pub fn hex_to_vec_u8(s: &str) -> Result<Vec<u8>, ParseIntError> {
     (0..s.len())
@@ -20,16 +20,22 @@ pub fn hex_to_vec_u8(s: &str) -> Result<Vec<u8>, ParseIntError> {
         .collect()
 }
 
-pub fn vs_contains_sub(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
+pub fn vs_contains_sub(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     memmem::find(haystack, needle)
 }
 
-fn ref_file(mfts: &Vec<(Range<usize>, u64)>, ntfs: &mut Ntfs, offset: u64, drive: &str, is_ref_file: bool) -> ColoredString {
-    if is_ref_file == false {
+fn ref_file(
+    mfts: &[(Range<usize>, u64)],
+    ntfs: &mut Ntfs,
+    offset: u64,
+    drive: &str,
+    is_ref_file: bool,
+) -> ColoredString {
+    if !is_ref_file {
         return format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red();
     }
     let mft = search_addr_belong(mfts, offset);
-    
+
     if let Some(mft) = mft {
         let mft = match ntfs.get_mft_entry_by_index(mft) {
             Some(s) => s,
@@ -48,17 +54,14 @@ fn ref_file(mfts: &Vec<(Range<usize>, u64)>, ntfs: &mut Ntfs, offset: u64, drive
     format!("lcn:{}", offset / ntfs.get_cluster_size()).bright_red()
 }
 
-
-
-fn vec_u8_to_utf16string(bytes: &Vec<u8>) -> String {
+fn vec_u8_to_utf16string(bytes: &[u8]) -> String {
     let title: Vec<u16> = bytes
         .chunks_exact(2)
-        .into_iter()
         .map(|a| u16::from_ne_bytes([a[0], a[1]]))
         .collect();
     let title = title.as_slice();
-    let title = String::from_utf16_lossy(title);
-    title
+
+    String::from_utf16_lossy(title)
 }
 
 pub fn sec_to_s(secs: u64) -> String {
@@ -83,7 +86,7 @@ where
             }
         };
         let flag = filter(entry.get_index() * ntfs.get_mft_size() as u64, &entry);
-        if flag == true {
+        if flag {
             let entry = Rc::new(entry);
             let data_value = entry.get_data_value();
             if let Some(value) = data_value {
@@ -103,10 +106,10 @@ where
     });
     cache.sort_by(|k, v| k.0.start.cmp(&v.0.start));
     result.extend(cache);
-    return result;
+    result
 }
 
-pub fn search_addr_belong(mfts: &Vec<(Range<usize>, u64)>, addr: u64) -> Option<u64> {
+pub fn search_addr_belong(mfts: &[(Range<usize>, u64)], addr: u64) -> Option<u64> {
     let addr = addr as usize;
 
     let mut start = 0;
@@ -122,9 +125,9 @@ pub fn search_addr_belong(mfts: &Vec<(Range<usize>, u64)>, addr: u64) -> Option<
             end = middle - 1;
             middle = (start + end) / 2;
             mft = &mfts[middle];
-        } else if addr >= mft.0.start && addr <= mft.0.end {
-            return Some(mft.1);
-        } else if start == end && (addr > mft.0.start && addr < mft.0.end) {
+        } else if (start == end && (addr > mft.0.start && addr < mft.0.end))
+            || (addr >= mft.0.start && addr <= mft.0.end)
+        {
             return Some(mft.1);
         } else {
             return None;
@@ -177,12 +180,12 @@ impl NtfsModule {
                 }
 
                 if let Some(datas) = value {
-                    if datas.get_datas().len() == 0 {
+                    if datas.get_datas().is_empty() {
                         return false;
                     }
                 }
                 save_offset = offset;
-                return true;
+                true
             });
             pb.finish();
             println!(
@@ -196,9 +199,9 @@ impl NtfsModule {
         let target: Vec<u8>;
         let mut regex_bytes_pattern = None::<regex::bytes::Regex>;
         let mut regex_pattern = None::<regex::Regex>;
-        
+
         if encode.eq("hex") {
-            target = match hex_to_vec_u8(&to_search) {
+            target = match hex_to_vec_u8(to_search) {
                 Ok(o) => o,
                 Err(_) => {
                     return Err(MRError::new("Not a valid hex"));
@@ -223,8 +226,7 @@ impl NtfsModule {
             let mut v: Vec<u16> = to_search.encode_utf16().collect();
             target = unsafe { v.align_to::<u8>().1.to_vec() };
             match_type = MatchType::Equal;
-        }
-        else if encode.eq("regex") {
+        } else if encode.eq("regex") {
             regex_bytes_pattern = Some(regex::bytes::Regex::from_str(to_search).unwrap());
             target = Vec::new();
             match_type = MatchType::Regex;
@@ -235,7 +237,7 @@ impl NtfsModule {
         }
         let read_size = self.ntfs.get_cluster_size() as usize * 0x1000;
         let all_zero_vec = Vec::<u8>::with_capacity(read_size + target.len());
-        let all_zero_hash = md5::compute(&all_zero_vec);
+        let all_zero_hash = md5::compute(all_zero_vec);
         //let target = Bytes::from(target);
         let totals = self.ntfs.get_sector_bytes_num() * self.ntfs.get_sector_num();
         let pb = ProgressBar::new(totals);
@@ -261,13 +263,19 @@ impl NtfsModule {
                             "{} {:?} -> ref_file: {}",
                             progress + size.unwrap() as u64,
                             sub,
-                            ref_file(&_mfts, i_to_m(ntfs), progress + size.unwrap() as u64, drive, bool_to_file)
+                            ref_file(
+                                &_mfts,
+                                i_to_m(ntfs),
+                                progress + size.unwrap() as u64,
+                                drive,
+                                bool_to_file
+                            )
                         );
                         pb2.println(s);
                     }
                 } else if match_type.eq(&MatchType::Regex) {
                     pb2.set_position(progress);
-                    
+
                     if let Some(rbp) = &regex_bytes_pattern {
                         for mt in rbp.find_iter(&bs) {
                             let rs = String::from_utf8_lossy(mt.as_bytes());
@@ -275,13 +283,19 @@ impl NtfsModule {
                                 "{} {:?} -> ref_file: {}",
                                 progress + mt.start() as u64,
                                 rs,
-                                ref_file(&_mfts, i_to_m(ntfs), progress + mt.start() as u64, drive, bool_to_file)
+                                ref_file(
+                                    &_mfts,
+                                    i_to_m(ntfs),
+                                    progress + mt.start() as u64,
+                                    drive,
+                                    bool_to_file
+                                )
                             );
                             pb2.println(s);
                         }
                     }
                 }
-                return false;
+                false
             });
         pb.finish();
 

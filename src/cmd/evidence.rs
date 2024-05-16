@@ -5,7 +5,7 @@ pub enum EvidenceType {
 }
 
 pub struct Evidence {
-    path        : String,
-    e_type      : String
+    _path        : String,
+    _e_type      : String
 }
 
