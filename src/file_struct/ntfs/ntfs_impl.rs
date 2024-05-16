@@ -3,9 +3,7 @@ use std::{collections::HashMap, fs, io::Write, ops::Range, rc::Rc, path::Path};
 use bytes::{Buf, Bytes};
 
 use crate::utils::{
-    file::MRFile,
-    funcs::{i_to_m, m_to_i},
-    MRError,
+    file::MRFile, funcs::{i_to_m, m_to_i}, MRErrKind, MRError
 };
 
 use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs, USNChangeJournal, Value20_AttributeList};
@@ -31,14 +29,14 @@ impl Ntfs {
         }
 
         let header = Bytes::from(header);
-        let bytes_per_sector = (&header[11..13]).get_u16_le();
-        let sectors_per_cluster_block = (&header[13..14]).get_u8();
+        let bytes_per_sector = (header.get(11..13).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
+        let sectors_per_cluster_block = (header.get(13..14).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u8();
 
-        let total_sectors = (&header[40..48]).get_u64_le();
-        let mft_cluster_block_number = (&header[48..56]).get_u64_le();
-        let mft_mirror_cluster_block_number = (&header[56..64]).get_u64_le();
-        let mft_entry_size = (&header[64..65]).get_u8();
-        let index_entry_size = (&header[68..69]).get_u8();
+        let total_sectors = (header.get(40..48).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le();
+        let mft_cluster_block_number = (header.get(48..56).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le();
+        let mft_mirror_cluster_block_number = (header.get(56..64).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le();
+        let mft_entry_size = (header.get(64..65).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u8();
+        let index_entry_size = (header.get(68..69).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u8();
 
         let start_with = header[0..12].to_vec();
         let cluster_size = bytes_per_sector as u64 * sectors_per_cluster_block as u64;
@@ -244,17 +242,15 @@ impl Ntfs {
                         continue;
                     }
                     is_deleted = mft_bs[22] == 0;
-                    let entry = std::panic::catch_unwind(|| {
-                        let entry = MFTEntry::parse(
+                    let entry = MFTEntry::parse(
                             mft_bs,
-                            i_to_m(self),
+                            self,
                             (start + i + offset) as u64,
                             index,
                         );
-                        entry
-                    });
+                    
                     if let Ok(o) = entry {
-                        f(index, o, is_deleted, i_to_m(self));
+                        f(index, Ok(o), is_deleted, i_to_m(self));
                     }
                     
                     index += 1;

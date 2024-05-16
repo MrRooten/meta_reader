@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, io::Write, mem::align_of, panic};
 use bytes::{Buf, Bytes};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 
-use crate::utils::{funcs::i_to_m, MRError};
+use crate::utils::{funcs::{i_to_m, sub_bytes}, MRError};
 
 use super::{
     CCommon, CNonResident, CResident, DataDescriptor, FileItem, FileReference, FileTime,
@@ -448,27 +448,27 @@ impl MFTEntry {
         mft_base: u64,
         index: u64,
     ) -> Result<MFTEntry, MRError> {
-        let sig = String::from_utf8_lossy(&bs[0..4]);
+        let sig = String::from_utf8_lossy(sub_bytes(&bs,0..4)?);
         if !sig.eq("BAAD") && !sig.eq("FILE") {
             return Err(MRError::new("Not a valid MFT entry"));
         }
 
-        let fix_up_value_offset = (&bs[4..6]).get_u16_le();
-        let number_fix_up_values = (&bs[6..8]).get_u16_le();
-        let journal_sequence_number = (&bs[8..16]).get_u64_le();
-        let sequence = (&bs[16..18]).get_u16_le();
-        let reference_count = (&bs[18..20]).get_u16_le();
-        let attributes_offset = (&bs[20..22]).get_u16_le();
-        let entry_flags = (&bs[22..24]).get_u16_le();
-        let used_size = (&bs[24..28]).get_u32_le();
-        let total_size = (&bs[28..32]).get_u32_le();
+        let fix_up_value_offset = (sub_bytes(&bs,4..6)?).get_u16_le();
+        let number_fix_up_values = (sub_bytes(&bs,6..8)?).get_u16_le();
+        let journal_sequence_number = (sub_bytes(&bs,8..16)?).get_u64_le();
+        let sequence = (sub_bytes(&bs,16..18)?).get_u16_le();
+        let reference_count = (sub_bytes(&bs,18..20)?).get_u16_le();
+        let attributes_offset = (sub_bytes(&bs,20..22)?).get_u16_le();
+        let entry_flags = (sub_bytes(&bs,22..24)?).get_u16_le();
+        let used_size = (sub_bytes(&bs,24..28)?).get_u32_le();
+        let total_size = (sub_bytes(&bs,28..32)?).get_u32_le();
 
         let mut map_attr_chains: HashMap<u32, Vec<MFTAttribute>> = HashMap::new();
         let mut base_addr = 56;
         let len = bs.len();
 
         while base_addr < len - 1 {
-            let _attr_len = (&bs[base_addr + 4..base_addr + 8]).get_u16_le();
+            let _attr_len = (sub_bytes(&bs,base_addr + 4..base_addr + 8)?).get_u16_le();
             let attr = match MFTAttribute::parse(
                 &bs,
                 ntfs,
@@ -732,11 +732,11 @@ impl FileTime {
 
 impl Value10_StandardInfomation {
     pub fn parse(bs: Bytes, ntfs: &Ntfs, index: u64) -> Result<Self, MRError> {
-        let file_create_time = FileTime::parse_from_u64((&bs[0..8]).get_u64());
-        let file_change_time = FileTime::parse_from_u64((&bs[8..16]).get_u64());
-        let mft_change_time = FileTime::parse_from_u64((&bs[16..24]).get_u64());
-        let file_last_visited = FileTime::parse_from_u64((&bs[24..32]).get_u64());
-        let file_attr = (&bs[32..36]).get_u32_le();
+        let file_create_time = FileTime::parse_from_u64((sub_bytes(&bs,0..8)?).get_u64());
+        let file_change_time = FileTime::parse_from_u64((sub_bytes(&bs,8..16)?).get_u64());
+        let mft_change_time = FileTime::parse_from_u64((sub_bytes(&bs,16..24)?).get_u64());
+        let file_last_visited = FileTime::parse_from_u64((sub_bytes(&bs,24..32)?).get_u64());
+        let file_attr = (sub_bytes(&bs,32..36)?).get_u32_le();
         // if index != 3 {
         //     //Not $Volume file
         //     let binding = ntfs.get_version();
@@ -747,10 +747,10 @@ impl Value10_StandardInfomation {
         //         }
         //     };
         //     if version.0 >= 3 && bs.len() > 48 {
-        //         let owner_id = Some((&bs[48..52]).get_u32_le());
-        //         let security_id = Some((&bs[52..56]).get_u32_le());
-        //         let quota_charged = Some((&bs[56..64]).get_u64_le());
-        //         let update_sequence_num = Some((&bs[64..72]).get_u64_le());
+        //         let owner_id = Some((sub_bytes(&bs,48..52)?).get_u32_le());
+        //         let security_id = Some((sub_bytes(&bs,52..56)?).get_u32_le());
+        //         let quota_charged = Some((sub_bytes(&bs,56..64)?).get_u64_le());
+        //         let update_sequence_num = Some((sub_bytes(&bs,64..72)?).get_u64_le());
         //         return Ok(Self {
         //             file_create_time,
         //             file_change_time,
@@ -788,13 +788,13 @@ impl Value20_AttributeList {
             let mut i = 0;
             let mut list = vec![];
             while i < bs.len() {
-                let attribute_type = (&bs[i..i + 4]).get_u32_le();
-                let size = (&bs[i + 4..i + 6]).get_u16_le();
-                let name_size = (&bs[i + 6..i + 7]).get_u8();
-                let name_offset = (&bs[i + 7..i + 8]).get_u8();
-                let data_vcn = (&bs[i + 8..i + 16]).get_u64_le();
+                let attribute_type = (sub_bytes(&bs,i..i + 4)?).get_u32_le();
+                let size = (sub_bytes(&bs,i + 4..i + 6)?).get_u16_le();
+                let name_size = (sub_bytes(&bs,i + 6..i + 7)?).get_u8();
+                let name_offset = (sub_bytes(&bs,i + 7..i + 8)?).get_u8();
+                let data_vcn = (sub_bytes(&bs,i + 8..i + 16)?).get_u64_le();
                 let file_reference = FileReference::parse(bs.slice(i + 16..i + 24));
-                let attribute_identifier = (&bs[i + 24..i + 26]).get_u16_le();
+                let attribute_identifier = (sub_bytes(&bs,i + 24..i + 26)?).get_u16_le();
                 if i + name_offset as usize + 2 * name_size as usize > bs.len() {
                     i += size as usize;
                     let v20 = V20Attr {
@@ -841,18 +841,18 @@ impl Value30_FileName {
         if bs.len() < 66 {
             return Err(MRError::new("error format filename length"));
         }
-        //let parent_file_num = (&bs[0..8]).get_u64_le();
+        //let parent_file_num = (sub_bytes(&bs,0..8)?).get_u64_le();
         let parent_file_num = get_le_u64(bs.slice(0..6)).unwrap();
-        let creation_date = FileTime::parse_from_u64((&bs[8..16]).get_u64());
-        let last_modify_time = FileTime::parse_from_u64((&bs[16..24]).get_u64());
-        let mft_change_time = FileTime::parse_from_u64((&bs[24..32]).get_u64());
-        let last_visit_time = FileTime::parse_from_u64((&bs[32..40]).get_u64());
-        let alloc_size = (&bs[40..48]).get_u64_le();
-        let file_size = (&bs[48..56]).get_u64_le();
-        let file_attr_flags = (&bs[56..60]).get_u32_le();
-        let extended_flags = (&bs[60..64]).get_u32_le();
-        let name_length = (&bs[64..65]).get_u8();
-        let name_space = (&bs[65..66]).get_u8();
+        let creation_date = FileTime::parse_from_u64((sub_bytes(&bs,8..16)?).get_u64());
+        let last_modify_time = FileTime::parse_from_u64((sub_bytes(&bs,16..24)?).get_u64());
+        let mft_change_time = FileTime::parse_from_u64((sub_bytes(&bs,24..32)?).get_u64());
+        let last_visit_time = FileTime::parse_from_u64((sub_bytes(&bs,32..40)?).get_u64());
+        let alloc_size = (sub_bytes(&bs,40..48)?).get_u64_le();
+        let file_size = (sub_bytes(&bs,48..56)?).get_u64_le();
+        let file_attr_flags = (sub_bytes(&bs,56..60)?).get_u32_le();
+        let extended_flags = (sub_bytes(&bs,60..64)?).get_u32_le();
+        let name_length = (sub_bytes(&bs,64..65)?).get_u8();
+        let name_space = (sub_bytes(&bs,65..66)?).get_u8();
         if bs.len() < 66 + (name_length as usize) * 2 {
             return Err(MRError::new("error format"));
         }
@@ -914,9 +914,9 @@ impl Value60_VolumeName {
 
 impl Value70_VolumeInfomation {
     pub fn parse(bs: Bytes, ntfs: &Ntfs) -> Self {
-        let major = (&bs[8..9]).get_u8();
-        let minor = (&bs[9..10]).get_u8();
-        let flags = (&bs[10..12]).get_u16_le();
+        let major = (sub_bytes(&bs,8..9).unwrap()).get_u8();
+        let minor = (sub_bytes(&bs,9..10).unwrap()).get_u8();
+        let flags = (sub_bytes(&bs,10..12).unwrap()).get_u16_le();
         Self {
             majar_version: major,
             minor_version: minor,
@@ -953,7 +953,7 @@ impl Value80_Data {
         let mut result = vec![];
         let mut cluster_number = 0;
         while index < bs.len() {
-            let len = (&bs[index..1 + index]).get_u8();
+            let len = (sub_bytes(&bs,index..1 + index)?).get_u8();
             let filesize_len = len % 16;
             let start_addr_len = len / 16;
             if filesize_len == 0 && start_addr_len == 0{
@@ -1039,10 +1039,10 @@ impl Value80_Data {
 
 impl IndexRootHeader {
     pub fn parse(bs: Bytes, ntfs: &Ntfs) -> Result<Self, MRError> {
-        let attr_type = (&bs[0..4]).get_u32_le();
-        let collation_type = (&bs[4..8]).get_u32_le();
-        let entry_size = (&bs[8..12]).get_u32_le();
-        let entry_num = (&bs[12..16]).get_u32_le();
+        let attr_type = (sub_bytes(&bs,0..4)?).get_u32_le();
+        let collation_type = (sub_bytes(&bs,4..8)?).get_u32_le();
+        let entry_size = (sub_bytes(&bs,8..12)?).get_u32_le();
+        let entry_num = (sub_bytes(&bs,12..16)?).get_u32_le();
         Ok(Self {
             attr_type,
             collation_type,
@@ -1054,10 +1054,10 @@ impl IndexRootHeader {
 
 impl IndexEntryHeader {
     pub fn parse(bs: Bytes, ntfs: &Ntfs) -> Result<Self, MRError> {
-        let fix_up_value_offset = (&bs[4..6]).get_u16_le();
-        let number_of_fix_up_values = (&bs[6..8]).get_u16_le();
-        let journal_sequence = (&bs[8..16]).get_u64_le();
-        let vcn_of_index_entry = (&bs[16..24]).get_u64_le();
+        let fix_up_value_offset = (sub_bytes(&bs,4..6)?).get_u16_le();
+        let number_of_fix_up_values = (sub_bytes(&bs,6..8)?).get_u16_le();
+        let journal_sequence = (sub_bytes(&bs,8..16)?).get_u64_le();
+        let vcn_of_index_entry = (sub_bytes(&bs,16..24)?).get_u64_le();
         Ok(Self {
             fix_up_value_offset,
             number_of_fix_up_values,
@@ -1069,10 +1069,10 @@ impl IndexEntryHeader {
 
 impl IndexNodeHeader {
     pub fn parse(bs: Bytes, ntfs: &Ntfs) -> Result<Self, MRError> {
-        let index_values_offset = (&bs[0..4]).get_u32_le();
-        let index_node_size = (&bs[4..8]).get_u32_le();
-        let allocated_index_node_size = (&bs[8..12]).get_u32_le();
-        let index_node_flags = (&bs[12..16]).get_u32_le();
+        let index_values_offset = (sub_bytes(&bs,0..4)?).get_u32_le();
+        let index_node_size = (sub_bytes(&bs,4..8)?).get_u32_le();
+        let allocated_index_node_size = (sub_bytes(&bs,8..12)?).get_u32_le();
+        let index_node_flags = (sub_bytes(&bs,12..16)?).get_u32_le();
         Ok(Self {
             index_values_offset,
             index_node_size,
@@ -1093,7 +1093,7 @@ impl Value90_IndexRoot {
         while index < node_header.index_node_size as usize {
             //Not handle
             let size_offset = index + value_offset as usize + 8;
-            let size = (&bs[size_offset..size_offset + 4]).get_u16_le();
+            let size = (sub_bytes(&bs,size_offset..size_offset + 4)?).get_u16_le();
             if size == 0 {
                 break;
             }
@@ -1150,9 +1150,9 @@ impl IndexValue {
 
     pub fn parse(bs: Bytes) -> Result<IndexValue, MRError> {
         let file_reference = FileReference::parse(bs.slice(0..8));
-        let index_value_size = (&bs[8..10]).get_u16_le();
-        let index_key_data_size = (&bs[10..12]).get_u16_le();
-        let index_value_flags = (&bs[12..16]).get_u32_le();
+        let index_value_size = (sub_bytes(&bs,8..10)?).get_u16_le();
+        let index_key_data_size = (sub_bytes(&bs,10..12)?).get_u16_le();
+        let index_value_flags = (sub_bytes(&bs,12..16)?).get_u32_le();
         let mut index_key_data: Option<Value30_FileName> = None;
         let mut index_value_data: Option<Vec<u8>> = None;
         let mut sub_node_vcn: Option<u64> = None;
@@ -1201,7 +1201,7 @@ impl ValueA0_IndexAlloction {
                     break;
                 }
                 let size_offset = index + value_offset as usize + 8;
-                let size = (&bs[size_offset..size_offset + 4]).get_u32_le();
+                let size = (sub_bytes(&bs,size_offset..size_offset + 4)?).get_u32_le();
                 if size == 0 {
                     break;
                 }
@@ -1220,7 +1220,7 @@ impl ValueA0_IndexAlloction {
                 entry_header: Some(vec![entry_header]),
             })
         } else {
-            let _tmp = (&bs[0..1]).get_u8();
+            let _tmp = (sub_bytes(&bs,0..1)?).get_u8();
             let offset_size = (_tmp / 16) as usize;
             let size_size = (_tmp % 16) as usize;
             let size = match get_le_u64(bs.slice(1..1 + size_size)) {
@@ -1312,17 +1312,17 @@ impl ValueA0_IndexAlloction {
 }
 
 impl CNonResident {
-    pub fn parse(bs: Bytes) -> Self {
-        let first_vcn = (&bs[0..8]).get_u64_le();
-        let last_vcn = (&bs[8..16]).get_u64_le();
-        let data_run_offset = (&bs[16..18]).get_u16_le();
-        let compression_unit_size = (&bs[18..20]).get_u16_le();
-        let allocated_data_size = (&bs[24..32]).get_u64_le();
-        let data_size = (&bs[32..40]).get_u64_le();
-        let valid_data_size = (&bs[40..48]).get_u64_le();
+    pub fn parse(bs: Bytes) -> Result<Self, MRError> {
+        let first_vcn = (sub_bytes(&bs,0..8)?).get_u64_le();
+        let last_vcn = (sub_bytes(&bs,8..16)?).get_u64_le();
+        let data_run_offset = (sub_bytes(&bs,16..18)?).get_u16_le();
+        let compression_unit_size = (sub_bytes(&bs,18..20)?).get_u16_le();
+        let allocated_data_size = (sub_bytes(&bs,24..32)?).get_u64_le();
+        let data_size = (sub_bytes(&bs,32..40)?).get_u64_le();
+        let valid_data_size = (sub_bytes(&bs,40..48)?).get_u64_le();
         if compression_unit_size > 0 {
-            let total_allocated_size = (&bs[48..56]).get_u64_le();
-            return Self {
+            let total_allocated_size = (sub_bytes(&bs,48..56)?).get_u64_le();
+            return Ok(Self {
                 first_vcn,
                 last_vcn,
                 data_run_offset,
@@ -1331,10 +1331,10 @@ impl CNonResident {
                 data_size,
                 valid_data_size,
                 total_allocated_size: Some(total_allocated_size),
-            };
+            });
         }
 
-        Self {
+        Ok(Self {
             first_vcn,
             last_vcn,
             data_run_offset,
@@ -1343,21 +1343,21 @@ impl CNonResident {
             data_size,
             valid_data_size,
             total_allocated_size: None,
-        }
+        })
     }
 }
 
 impl CResident {
-    pub fn parse(bs: Bytes) -> Self {
-        let data_size = (&bs[0..4]).get_u32_le();
-        let data_offset = (&bs[4..6]).get_u16_le();
-        let indexed_flag = (&bs[6..7]).get_u8();
-        Self {
+    pub fn parse(bs: Bytes) -> Result<Self, MRError> {
+        let data_size = (sub_bytes(&bs,0..4)?).get_u32_le();
+        let data_offset = (sub_bytes(&bs,4..6)?).get_u16_le();
+        let indexed_flag = (sub_bytes(&bs,6..7)?).get_u8();
+        Ok(Self {
             data_size,
             data_offset,
             indexed_flag,
             padding: 0,
-        }
+        })
     }
 }
 
@@ -1424,13 +1424,13 @@ impl MFTAttribute {
         base_addr: u64,
     ) -> Result<Self, MRError> {
         let offset = base_of_mft as usize;
-        let attr_type = (&bs[offset..offset + 4]).get_u32_le();
-        let size = (&bs[offset + 4..offset + 6]).get_u16_le();
-        let non_resident_flag = (&bs[offset + 8..offset + 9]).get_u8();
-        let name_length = (&bs[offset + 9..offset + 10]).get_u8();
-        let name_offset = (&bs[offset + 10..offset + 12]).get_u16_le();
-        let data_flags = (&bs[offset + 12..offset + 14]).get_u16_le();
-        let attr_id = (&bs[offset + 14..offset + 16]).get_u16_le();
+        let attr_type = (sub_bytes(bs,offset..offset + 4)?).get_u32_le();
+        let size = (sub_bytes(bs,offset + 4..offset + 6)?).get_u16_le();
+        let non_resident_flag = (sub_bytes(bs,offset + 8..offset + 9)?).get_u8();
+        let name_length = (sub_bytes(bs,offset + 9..offset + 10)?).get_u8();
+        let name_offset = (sub_bytes(bs,offset + 10..offset + 12)?).get_u16_le();
+        let data_flags = (sub_bytes(bs,offset + 12..offset + 14)?).get_u16_le();
+        let attr_id = (sub_bytes(bs,offset + 14..offset + 16)?).get_u16_le();
         let attr_name = bs.slice(
             (offset + name_offset as usize)
                 ..(offset + name_offset as usize + 2 * name_length as usize),
@@ -1440,11 +1440,11 @@ impl MFTAttribute {
         let common: CCommon;
         let base: usize;
         if non_resident_flag == 1 {
-            let c = CNonResident::parse(bs.slice(offset + 16..offset + 16 + 56));
+            let c = CNonResident::parse(bs.slice(offset + 16..offset + 16 + 56))?;
             base = c.data_run_offset as usize;
             common = CCommon::NonResident(c);
         } else {
-            let c = CResident::parse(bs.slice(offset + 16..offset + 24));
+            let c = CResident::parse(bs.slice(offset + 16..offset + 24))?;
             base = c.data_offset as usize;
             common = CCommon::Resident(c);
         }

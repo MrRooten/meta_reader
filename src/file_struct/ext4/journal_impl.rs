@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use bytes::{Buf, Bytes};
 
-use crate::utils::MRError;
+use crate::utils::{funcs::sub_bytes, MRErrKind, MRError};
 
 use super::{
     CommitBlock, Ext4, Inode, Journal, JournalBlockTag, JournalDataBlock, JournalDescriptorBlock,
@@ -10,12 +10,12 @@ use super::{
 };
 
 impl JournalHeader {
-    pub fn parse(bs: Bytes) -> JournalHeader {
-        Self {
-            h_magic: (&bs[0..4]).get_u32(),
-            h_blocktype: (&bs[4..8]).get_u32(),
-            h_sequence: (&bs[8..12]).get_u32(),
-        }
+    pub fn parse(bs: Bytes) -> Result<JournalHeader, MRError> {
+        Ok(Self {
+            h_magic: (bs.get(0..4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32(),
+            h_blocktype: (bs.get(4..8).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32(),
+            h_sequence: (bs.get(8..12).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32(),
+        })
     }
 }
 
@@ -33,10 +33,10 @@ impl JournalBlockTag {
             if bs.len() < 16 {
                 return Err(MRError::new("Parse size error"));
             }
-            let blocknr = (&bs[0..4]).get_u32();
-            let flags = (&bs[4..8]).get_u32();
-            let blocknr_high = (&bs[8..0xc]).get_u32();
-            let checksum = (&bs[0xc..0x10]).get_u32();
+            let blocknr = (bs.get(0..4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+            let flags = (bs.get(4..8).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+            let blocknr_high = (bs.get(8..0xc).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+            let checksum = (bs.get(0xc..0x10).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
 
             if flags & 0x2 == 0x2 {
                 return Ok(Self {
@@ -50,7 +50,7 @@ impl JournalBlockTag {
                 if bs.len() < 32 {
                     return Err(MRError::new("Parse size error"));
                 }
-                let uuid = bs[0xc..0xc + 16].to_vec();
+                let uuid = sub_bytes(&bs,0xc..0xc + 16)?.to_vec();
                 return Ok(Self {
                     blocknr,
                     blocknr_high,
@@ -63,15 +63,15 @@ impl JournalBlockTag {
             if bs.len() < 8 {
                 return Err(MRError::new("Parse size error"));
             }
-            let blocknr = (&bs[0..4]).get_u32();
-            let checksum = (&bs[4..6]).get_u16();
-            let flags = (&bs[6..8]).get_u16();
+            let blocknr = (bs.get(0..4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+            let checksum = (bs.get(4..6).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16();
+            let flags = (bs.get(6..8).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16();
 
             if is_64bit {
                 if bs.len() < 12 {
                     return Err(MRError::new("Parse size error"));
                 }
-                let blocknr_high = (&bs[8..12]).get_u32();
+                let blocknr_high = (bs.get(8..12).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
                 if flags & 0x2 == 0x2 {
                     return Ok(Self {
                         blocknr,
@@ -84,7 +84,7 @@ impl JournalBlockTag {
                     if bs.len() < 28 {
                         return Err(MRError::new("Parse size error"));
                     }
-                    let uuid = bs[12..12 + 16].to_vec();
+                    let uuid = sub_bytes(&bs,12..12 + 16)?.to_vec();
                     return Ok(Self {
                         blocknr,
                         blocknr_high,
@@ -109,7 +109,7 @@ impl JournalBlockTag {
                     if bs.len() < 24 {
                         return Err(MRError::new("Parse size error"));
                     }
-                    let uuid = bs[8..8 + 16].to_vec();
+                    let uuid = sub_bytes(&bs,8..8 + 16)?.to_vec();
                     return Ok(Self {
                         blocknr,
                         blocknr_high: 0,
@@ -130,7 +130,7 @@ impl JournalDescriptorBlock {
     }
 
     pub fn parse(bs: Bytes, sb: &JournalSuperBlock, ext4: &Ext4) -> Result<Self, MRError> {
-        let header = JournalHeader::parse(bs.slice(0..0xc));
+        let header = JournalHeader::parse(bs.slice(0..0xc))?;
         if header.h_magic != 0xC03B3998 {
             return Err(MRError::new("Not a valid descriptor"));
         }
@@ -166,7 +166,7 @@ impl Journal {
     pub fn parse(ext4: &Ext4, offset: usize) -> Result<Self, MRError> {
         let reader = ext4.get_reader();
         let sb_bs = reader.read_n(offset, 0x100 + 16 * 48).unwrap();
-        let sb = JournalSuperBlock::parse(Bytes::from(sb_bs), ext4);
+        let sb = JournalSuperBlock::parse(Bytes::from(sb_bs), ext4)?;
         Ok(Self {
             super_block: sb,
             ext4: Some(ext4 as *const Ext4),
@@ -209,7 +209,7 @@ impl Journal {
                     vs.push(JournalDataBlock::new(tag.get_block_id(), range));
                 }
                 let bs = reader.read_n(base_offset, 0x3c).unwrap();
-                let commit_block = CommitBlock::parse(Bytes::from(bs));
+                let commit_block = CommitBlock::parse(Bytes::from(bs)).unwrap();
                 let transaction = JournalTransaction {
                     desc_block: desc,
                     data_blocks: vs,
@@ -239,18 +239,18 @@ impl Journal {
         vs
     }
 
-    pub fn find_inodes(&self, id: u32) -> Vec<Inode> {
+    pub fn find_inodes(&self, id: u32) -> Result<Vec<Inode>, MRError> {
         let mut result = vec![];
         let ext4 = unsafe { &(*self.ext4.unwrap()) };
         let reader = ext4.get_reader();
         let block_size = ext4.get_block_size();
-        let s_inodes_per_group = ext4.get_s_inodes_per_group();
+        let s_inodes_per_group = ext4.get_s_inodes_per_group()?;
         let index = (id - 1) / s_inodes_per_group;
         let offset = index * ext4.get_s_inode_size() as u32;
         let gdt = match ext4.get_inode_belong_gdt(id) {
             Ok(o) => o,
             Err(e) => {
-                return result;
+                return Ok(result);
             }
         };
         let inode_table = gdt.get_inode_table();
@@ -262,10 +262,10 @@ impl Journal {
         for i in inode_table_block {
             let mut base = i.range.start + 0x100 * inode_block_offset as usize;
             let bs = reader.read_n(base, 0x100).unwrap();
-            let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64);
+            let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64)?;
             result.push(inode);
         }
-        result
+        Ok(result)
     }
 
     pub fn iter_files<F>(&self, mut f: F)
@@ -279,7 +279,8 @@ impl Journal {
             let data_blocks = &transaction.data_blocks;
             for block in data_blocks {
                 let block_id = block.block_id;
-                let num_blocks = ext4.get_s_inodes_per_group() as usize * 0x100 / ext4.get_block_size();
+                let inodes_per_group = ext4.get_s_inodes_per_group().unwrap();
+                let num_blocks = inodes_per_group as usize * 0x100 / ext4.get_block_size();
                 if !gdts.iter().any(|x| {
                     block_id >= x.get_inode_table() && block_id <= x.get_inode_table() + num_blocks as u64
                 }) {
@@ -305,7 +306,7 @@ impl Journal {
                         }
                     };
                     let inode_bs = bs.slice(base_addr..base_addr+0x100);
-                    let inode = Inode::parse(&inode_bs, ext4, base_addr as u64);
+                    let inode = Inode::parse(&inode_bs, ext4, base_addr as u64).unwrap();
                     f(id, &inode);
                     base_addr += 0x100;
                     count += 1;
@@ -316,18 +317,18 @@ impl Journal {
 }
 
 impl JournalSuperBlock {
-    pub fn parse(bs: Bytes, ext4: &Ext4) -> Self {
-        let header = JournalHeader::parse(bs.slice(0..0xc));
-        let s_blocksize = (&bs[0xc..0x10]).get_u32();
-        let s_maxlen = (&bs[0x10..0x14]).get_u32();
-        let s_first = (&bs[0x14..0x18]).get_u32();
-        let s_max_transaction = (&bs[0x48..0x4c]).get_u32();
-        let s_errno = (&bs[0x20..0x24]).get_u32();
-        let s_max_trans_data = (&bs[0x4c..0x50]).get_u32();
-        let s_feature_compat = (&bs[0x24..0x28]).get_u32();
-        let s_feature_incompat = (&bs[0x28..0x2c]).get_u32();
-        let s_feature_ro_compat = (&bs[0x2c..0x30]).get_u32();
-        Self {
+    pub fn parse(bs: Bytes, ext4: &Ext4) -> Result<Self, MRError> {
+        let header = JournalHeader::parse(bs.slice(0..0xc))?;
+        let s_blocksize = (bs.get(0xc..0x10).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_maxlen = (bs.get(0x10..0x14).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_first = (bs.get(0x14..0x18).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_max_transaction = (bs.get(0x48..0x4c).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_errno = (bs.get(0x20..0x24).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_max_trans_data = (bs.get(0x4c..0x50).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_feature_compat = (bs.get(0x24..0x28).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_feature_incompat = (bs.get(0x28..0x2c).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        let s_feature_ro_compat = (bs.get(0x2c..0x30).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32();
+        Ok(Self {
             header,
             s_blocksize,
             s_maxlen,
@@ -338,7 +339,7 @@ impl JournalSuperBlock {
             s_feature_compat,
             s_feature_incompat,
             s_feature_ro_compat,
-        }
+        })
     }
 
     pub fn get_feature_incompat(&self) -> u32 {
@@ -347,12 +348,12 @@ impl JournalSuperBlock {
 }
 
 impl CommitBlock {
-    pub fn parse(bs: Bytes) -> CommitBlock {
-        Self {
-            header: JournalHeader::parse(bs.slice(0..0xc)),
-            commit_sec: (&bs[0x30..0x38]).get_u64(),
-            commit_nsec: (&bs[0x38..0x3c]).get_u32(),
-        }
+    pub fn parse(bs: Bytes) -> Result<CommitBlock, MRError> {
+        Ok(Self {
+            header: JournalHeader::parse(bs.slice(0..0xc))?,
+            commit_sec: (bs.get(0x30..0x38).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64(),
+            commit_nsec: (bs.get(0x38..0x3c).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32(),
+        })
     }
 }
 

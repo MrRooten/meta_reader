@@ -1,7 +1,7 @@
 use bytes::{Buf, Bytes};
 use chrono::NaiveDateTime;
 
-use crate::utils::{file::MRFile, MRError};
+use crate::utils::{file::MRFile, funcs::sub_bytes, MRError};
 
 use super::{
     DirectoryEntry, Ext4, Extent, ExtentHeader, ExtentIdx, ExtentNode, ExtentNodeType, ExtentTree,
@@ -9,13 +9,13 @@ use super::{
 };
 
 impl Extent {
-    pub fn parse(bs: &Bytes) -> Extent {
-        Extent {
-            ee_block: (&bs[0..4]).get_u32_le(),
-            ee_len: (&bs[4..6]).get_u16_le(),
-            ee_start_hi: (&bs[6..8]).get_u16_le(),
-            ee_start_lo: (&bs[8..12]).get_u32_le(),
-        }
+    pub fn parse(bs: &Bytes) -> Result<Extent, MRError> {
+        Ok(Extent {
+            ee_block: (sub_bytes(bs,0..4)?).get_u32_le(),
+            ee_len: (sub_bytes(bs,4..6)?).get_u16_le(),
+            ee_start_hi: (sub_bytes(bs,6..8)?).get_u16_le(),
+            ee_start_lo: (sub_bytes(bs,8..12)?).get_u32_le(),
+        })
     }
 
     pub fn get_start(&self) -> usize {
@@ -28,13 +28,13 @@ impl Extent {
 }
 
 impl ExtentIdx {
-    pub fn parse(bs: &Bytes) -> Self {
-        Self {
-            ei_block: (&bs[0..4]).get_u32_le(),
-            ei_leaf_lo: (&bs[4..8]).get_u32_le(),
-            ei_leaf_hi: (&bs[8..0xa]).get_u16_le(),
-            ei_unused: (&bs[10..12]).get_u16_le(),
-        }
+    pub fn parse(bs: &Bytes) -> Result<Self, MRError> {
+        Ok(Self {
+            ei_block: (sub_bytes(bs,0..4)?).get_u32_le(),
+            ei_leaf_lo: (sub_bytes(bs,4..8)?).get_u32_le(),
+            ei_leaf_hi: (sub_bytes(bs,8..0xa)?).get_u16_le(),
+            ei_unused: (sub_bytes(bs,10..12)?).get_u16_le(),
+        })
     }
 }
 
@@ -43,12 +43,12 @@ const EXTENT_HEADER_SIZE: usize = 12;
 const EXTENT_IDX_SIZE: usize = 12;
 
 impl ExtentNode {
-    pub fn parse_header(bs: &Bytes, offset: u64) -> ExtentNode {
-        let eh_magic = (&bs[0..2]).get_u16_le();
-        let en_entries = (&bs[2..4]).get_u16_le();
-        let en_max = (&bs[4..6]).get_u16_le();
-        let en_depth = (&bs[6..8]).get_u16_le();
-        let en_generation = (&bs[8..12]).get_u32_le();
+    pub fn parse_header(bs: &Bytes, offset: u64) -> Result<ExtentNode, MRError> {
+        let eh_magic = (sub_bytes(bs,0..2)?).get_u16_le();
+        let en_entries = (sub_bytes(bs,2..4)?).get_u16_le();
+        let en_max = (sub_bytes(bs,4..6)?).get_u16_le();
+        let en_depth = (sub_bytes(bs,6..8)?).get_u16_le();
+        let en_generation = (sub_bytes(bs,8..12)?).get_u32_le();
         let mut extents = vec![];
         let mut idx_items = vec![];
         let t = if en_depth == 0 {
@@ -65,21 +65,21 @@ impl ExtentNode {
             eh_generation: en_generation,
         };
 
-        Self {
+        Ok(Self {
             header,
             idx_items,
             extents,
             node_type: t,
             base_addr: offset,
-        }
+        })
     }
 
-    pub fn parse(bs: &Bytes, offset: u64) -> ExtentNode {
-        let eh_magic = (&bs[0..2]).get_u16_le();
-        let en_entries = (&bs[2..4]).get_u16_le();
-        let en_max = (&bs[4..6]).get_u16_le();
-        let en_depth = (&bs[6..8]).get_u16_le();
-        let en_generation = (&bs[8..12]).get_u32_le();
+    pub fn parse(bs: &Bytes, offset: u64) -> Result<ExtentNode, MRError> {
+        let eh_magic = (sub_bytes(bs,0..2)?).get_u16_le();
+        let en_entries = (sub_bytes(bs,2..4)?).get_u16_le();
+        let en_max = (sub_bytes(bs,4..6)?).get_u16_le();
+        let en_depth = (sub_bytes(bs,6..8)?).get_u16_le();
+        let en_generation = (sub_bytes(bs,8..12)?).get_u32_le();
 
         let mut extents = vec![];
         let mut idx_items = vec![];
@@ -88,7 +88,7 @@ impl ExtentNode {
             for i in 0..en_max {
                 let v = bs[index..index + 12].to_vec();
                 let t = Bytes::from(v);
-                let extent = Extent::parse(&t);
+                let extent = Extent::parse(&t)?;
                 if extent.ee_start_lo == 0 && extent.ee_start_hi == 0 {
                     continue;
                 }
@@ -104,7 +104,7 @@ impl ExtentNode {
                 }
                 let v = bs[index..index + 12].to_vec();
                 let t = Bytes::from(v);
-                let idx = ExtentIdx::parse(&t);
+                let idx = ExtentIdx::parse(&t)?;
                 if idx.ei_leaf_lo == 0 && idx.ei_leaf_hi == 0 {
                     continue;
                 }
@@ -122,18 +122,18 @@ impl ExtentNode {
             eh_generation: en_generation,
         };
 
-        Self {
+        Ok(Self {
             header,
             idx_items,
             extents,
             node_type: t,
             base_addr: offset,
-        }
+        })
     }
 }
 
 impl Inode {
-    pub fn get_extent_tree(&self) -> ExtentTree {
+    pub fn get_extent_tree(&self) -> Result<ExtentTree, MRError> {
         ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28)
     }
 
@@ -149,13 +149,13 @@ impl Inode {
         self.i_uid
     }
 
-    pub fn is_empty(&self) -> bool {
-        let tree = self.get_extent_tree();
+    pub fn is_empty(&self) -> Result<bool, MRError> {
+        let tree = self.get_extent_tree()?;
         if tree.extents.len() != 0 || tree.idx_items.len() != 0 {
-            return false;
+            return Ok(false);
         }
 
-        true
+        Ok(true)
     }
     #[allow(deprecated)]
     pub fn get_atime(&self) -> NaiveDateTime {
@@ -336,7 +336,7 @@ impl Inode {
             let ext4 = &(*self.ext4.unwrap());
             let reader = ext4.get_reader();
             let first =
-                ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28);
+                ExtentTree::parse(&Bytes::from(self.i_block.clone()), self.base_addr + 0x28)?;
             stack.push(first);
             while let Some(f) = stack.pop() {
                 if f.node_type.eq(&ExtentNodeType::ExtentType) {
@@ -344,7 +344,7 @@ impl Inode {
                     for i in 0..f.header.eh_entries {
                         let v = reader.read_n(index as usize, EXTENT_SIZE).unwrap();
                         let t = Bytes::from(v);
-                        let extent = Extent::parse(&t);
+                        let extent = Extent::parse(&t)?;
                         if extent.ee_start_lo == 0 && extent.ee_start_hi == 0 {
                             continue;
                         }
@@ -359,7 +359,7 @@ impl Inode {
                     for i in 0..f.header.eh_entries {
                         let v = reader.read_n(index as usize, EXTENT_IDX_SIZE).unwrap();
                         let t = Bytes::from(v);
-                        let idx = ExtentIdx::parse(&t);
+                        let idx = ExtentIdx::parse(&t)?;
                         if idx.ei_leaf_lo == 0 && idx.ei_leaf_hi == 0 {
                             continue;
                         }
@@ -368,7 +368,7 @@ impl Inode {
                         let leaf_offset = (leaf_offset as usize) * ext4.get_block_size();
                         let header_bs = reader.read_n(leaf_offset, 12).unwrap();
                         let mut child_node =
-                            ExtentNode::parse_header(&Bytes::from(header_bs), leaf_offset as u64);
+                            ExtentNode::parse_header(&Bytes::from(header_bs), leaf_offset as u64)?;
                         let mut idx_index = 0;
                         let idxs_size = EXTENT_IDX_SIZE * (child_node.header.eh_entries as usize);
                         let idxs_bs = reader
@@ -376,7 +376,7 @@ impl Inode {
                             .unwrap();
                         for j in 0..child_node.header.eh_entries {
                             let _vs = idxs_bs[idx_index..(idx_index + EXTENT_IDX_SIZE)].to_vec();
-                            let child_idx = ExtentIdx::parse(&Bytes::from(_vs));
+                            let child_idx = ExtentIdx::parse(&Bytes::from(_vs))?;
                             child_node.idx_items.push(child_idx);
                             idx_index += EXTENT_IDX_SIZE;
                         }
@@ -442,33 +442,33 @@ impl Inode {
         self.i_mode & 0x8000 == 0x8000
     }
 
-    pub fn parse(bs: &Bytes, ext4: &Ext4, offset: u64) -> Inode {
-        let i_mode = (&bs[0..2]).get_u16_le();
-        let i_uid = (&bs[2..4]).get_u16_le();
-        let i_size_lo = (&bs[0x4..8]).get_u32_le();
-        let i_atime = (&bs[0x8..12]).get_u32_le();
-        let i_ctime = (&bs[0xc..0xc + 4]).get_u32_le();
-        let i_mtime = (&bs[0x10..0x14]).get_u32_le();
-        let i_dtime = (&bs[0x14..0x18]).get_u32_le();
-        let i_gid = (&bs[0x18..0x1a]).get_u16_le();
-        let i_link_count = (&bs[0x1a..0x1c]).get_u16_le();
-        let i_blocks_lo = (&bs[0x1c..0x20]).get_u32_le();
-        let i_flags = (&bs[0x20..0x24]).get_u32_le();
-        let i_generation = (&bs[0x64..0x68]).get_u32_le();
-        let i_file_acl_lo = (&bs[0x68..0x6c]).get_u32_le();
-        let i_size_high = (&bs[0x6c..0x70]).get_u32_le();
-        let i_obso_faddr = (&bs[0x70..0x74]).get_u32_le();
-        let i_extra_isize = (&bs[0x80..0x82]).get_u16_le();
-        let i_checksum_hi = (&bs[0x82..0x84]).get_u16_le();
-        let i_ctime_extra = (&bs[0x84..0x88]).get_u32_le();
-        let i_mtime_extra = (&bs[0x88..0x8c]).get_u32_le();
-        let i_atime_extra = (&bs[0x8c..0x90]).get_u32_le();
-        let i_ctrime = (&bs[0x90..0x94]).get_u32_le();
-        let i_ctrime_extra = (&bs[0x94..0x98]).get_u32_le();
-        let i_version_hi = (&bs[0x98..0x9c]).get_u32_le();
-        let i_projid = (&bs[0x9c..0x100]).get_u32_le();
-        let i_block = (&bs[0x28..0x64]);
-        Inode {
+    pub fn parse(bs: &Bytes, ext4: &Ext4, offset: u64) -> Result<Inode, MRError> {
+        let i_mode = (sub_bytes(bs,0..2)?).get_u16_le();
+        let i_uid = (sub_bytes(bs,2..4)?).get_u16_le();
+        let i_size_lo = (sub_bytes(bs,0x4..8)?).get_u32_le();
+        let i_atime = (sub_bytes(bs,0x8..12)?).get_u32_le();
+        let i_ctime = (sub_bytes(bs,0xc..0xc + 4)?).get_u32_le();
+        let i_mtime = (sub_bytes(bs,0x10..0x14)?).get_u32_le();
+        let i_dtime = (sub_bytes(bs,0x14..0x18)?).get_u32_le();
+        let i_gid = (sub_bytes(bs,0x18..0x1a)?).get_u16_le();
+        let i_link_count = (sub_bytes(bs,0x1a..0x1c)?).get_u16_le();
+        let i_blocks_lo = (sub_bytes(bs,0x1c..0x20)?).get_u32_le();
+        let i_flags = (sub_bytes(bs,0x20..0x24)?).get_u32_le();
+        let i_generation = (sub_bytes(bs,0x64..0x68)?).get_u32_le();
+        let i_file_acl_lo = (sub_bytes(bs,0x68..0x6c)?).get_u32_le();
+        let i_size_high = (sub_bytes(bs,0x6c..0x70)?).get_u32_le();
+        let i_obso_faddr = (sub_bytes(bs,0x70..0x74)?).get_u32_le();
+        let i_extra_isize = (sub_bytes(bs,0x80..0x82)?).get_u16_le();
+        let i_checksum_hi = (sub_bytes(bs,0x82..0x84)?).get_u16_le();
+        let i_ctime_extra = (sub_bytes(bs,0x84..0x88)?).get_u32_le();
+        let i_mtime_extra = (sub_bytes(bs,0x88..0x8c)?).get_u32_le();
+        let i_atime_extra = (sub_bytes(bs,0x8c..0x90)?).get_u32_le();
+        let i_ctrime = (sub_bytes(bs,0x90..0x94)?).get_u32_le();
+        let i_ctrime_extra = (sub_bytes(bs,0x94..0x98)?).get_u32_le();
+        let i_version_hi = (sub_bytes(bs,0x98..0x9c)?).get_u32_le();
+        let i_projid = (sub_bytes(bs,0x9c..0x100)?).get_u32_le();
+        let i_block = (sub_bytes(bs,0x28..0x64)?);
+        Ok(Inode {
             i_mode,
             i_uid,
             i_size_lo,
@@ -496,7 +496,7 @@ impl Inode {
             i_block: i_block.to_vec(),
             ext4: Some(ext4 as *const Ext4),
             base_addr: offset,
-        }
+        })
     }
 }
 

@@ -1,3 +1,5 @@
+use std::ops::RangeBounds;
+
 use bytes::{Bytes, Buf};
 use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
 
@@ -21,8 +23,8 @@ pub struct Elf32_Ehdr {
 impl Elf32_Ehdr {
     fn new(bytes: &Bytes) -> Elf32_Ehdr {
         let mut ehdr = Elf32_Ehdr::default();
-        ehdr._ehdr.e_ident.copy_from_slice(&bytes[0..16]);
-        ehdr._ehdr.e_type = (&bytes[16..18]).get_u16_le();
+        ehdr._ehdr.e_ident.copy_from_slice(bytes.get(0..16).unwrap());
+        ehdr._ehdr.e_type = (bytes.slice(16..18)).get_u16_le();
         ehdr._ehdr.e_machine = (&bytes[18..20]).get_u16_le();
         ehdr._ehdr.e_version = (&bytes[20..24]).get_u32_le();
         ehdr.e_entry = Elf32_Addr((&bytes[24..28]).get_u32_le());
@@ -89,14 +91,14 @@ pub struct Elf32_Phdr {
 impl Elf32_Phdr {
     fn new(bytes: &Bytes, elf: &ELF32) -> Elf32_Phdr {
         let mut phdr = Elf32_Phdr::default();
-        phdr._phdr.p_type = (&bytes[0..4]).get_u32_le();
-        phdr.p_offset = Elf32_Off((&bytes[4..8]).get_u32_le());
-        phdr.p_vaddr = Elf32_Addr((&bytes[4..8]).get_u32_le());
-        phdr.p_paddr = Elf32_Addr((&bytes[8..12]).get_u32_le());
-        phdr.p_filesz = (&bytes[12..16]).get_u32_le();
-        phdr.p_memsz = (&bytes[16..20]).get_u32_le();
-        phdr._phdr.p_flags = (&bytes[20..24]).get_u32_le();
-        phdr.p_align = (&bytes[24..28]).get_u32_le();
+        phdr._phdr.p_type = (bytes.slice(0..4)).get_u32_le();
+        phdr.p_offset = Elf32_Off((bytes.slice(4..8)).get_u32_le());
+        phdr.p_vaddr = Elf32_Addr((bytes.slice(4..8)).get_u32_le());
+        phdr.p_paddr = Elf32_Addr((bytes.slice(8..12)).get_u32_le());
+        phdr.p_filesz = (bytes.slice(12..16)).get_u32_le();
+        phdr.p_memsz = (bytes.slice(16..20)).get_u32_le();
+        phdr._phdr.p_flags = (bytes.slice(20..24)).get_u32_le();
+        phdr.p_align = (bytes.slice(24..28)).get_u32_le();
         phdr.self_elf = Some(elf as *const ELF32);
         phdr
     }
@@ -146,16 +148,16 @@ pub struct Elf32_Shdr {
 impl Elf32_Shdr {
     fn new(bytes: &Bytes, elf: &ELF32) -> Elf32_Shdr {
         Elf32_Shdr {
-            sh_name: (&bytes[0..4]).get_u32_le(),
-            sh_type: (&bytes[4..8]).get_u32_le(),
-            sh_flags: (&bytes[8..12]).get_u32_le(),
-            sh_addr: Elf32_Addr((&bytes[12..16]).get_u32_le()),
-            sh_offset: Elf32_Off((&bytes[16..20]).get_u32_le()),
-            sh_size: (&bytes[20..24]).get_u32_le(),
-            sh_link: (&bytes[24..28]).get_u32_le(),
-            sh_info: (&bytes[28..32]).get_u32_le(),
-            sh_addralign: (&bytes[32..36]).get_u32_le(),
-            sh_entsize: (&bytes[36..40]).get_u32_le(),
+            sh_name: (bytes.slice(0..4)).get_u32_le(),
+            sh_type: (bytes.slice(4..8)).get_u32_le(),
+            sh_flags: (bytes.slice(8..12)).get_u32_le(),
+            sh_addr: Elf32_Addr((bytes.slice(12..16)).get_u32_le()),
+            sh_offset: Elf32_Off((bytes.slice(16..20)).get_u32_le()),
+            sh_size: (bytes.slice(20..24)).get_u32_le(),
+            sh_link: (bytes.slice(24..28)).get_u32_le(),
+            sh_info: (bytes.slice(28..32)).get_u32_le(),
+            sh_addralign: (bytes.slice(32..36)).get_u32_le(),
+            sh_entsize: (bytes.slice(36..40)).get_u32_le(),
             self_elf: Some(elf as *const ELF32),
             data    : Bytes::default(),
             name    : "".to_string()
@@ -217,12 +219,12 @@ pub struct Elf32_Sym {
 impl Elf32_Sym {
     pub fn parse(bytes: &Bytes,elf: *const ELF32) -> Elf32_Sym {
         Elf32_Sym {
-            st_name : (&bytes[0..4]).get_u32_le(),
-            st_value : Elf32_Addr((&bytes[4..8]).get_u32_le()),
-            st_size : (&bytes[8..12]).get_u32_le(),
-            st_info : (&bytes[12..13]).get_u8(),
-            st_other : (&bytes[13..14]).get_u8(),
-            st_shndx  : (&bytes[14..16]).get_u16_le(),
+            st_name : (bytes.slice(0..4)).get_u32_le(),
+            st_value : Elf32_Addr((bytes.slice(4..8)).get_u32_le()),
+            st_size : (bytes.slice(8..12)).get_u32_le(),
+            st_info : (bytes.slice(12..13)).get_u8(),
+            st_other : (bytes.slice(13..14)).get_u8(),
+            st_shndx  : (bytes.slice(14..16)).get_u16_le(),
             self_elf  : Some(elf)
         }
     }

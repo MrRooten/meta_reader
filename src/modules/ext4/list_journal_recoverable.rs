@@ -35,9 +35,9 @@ impl Ext4Module {
 
         for sub_dir in vs {
             let jbd2 = self.ext4.get_jbd2().unwrap();
-            let inodes = jbd2.find_inodes(sub_dir.get_id());
+            let inodes = jbd2.find_inodes(sub_dir.get_id()).unwrap();
             for i in inodes {
-                if !i.is_empty() {
+                if !i.is_empty()? {
                     if result.contains(&sub_dir) {
                         continue;
                     }

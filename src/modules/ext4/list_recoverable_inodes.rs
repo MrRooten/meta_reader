@@ -7,7 +7,7 @@ use super::Ext4Module;
 impl Ext4Module {
     pub fn list_recoverable_inodes<F>(&self, _args: HashMap<String,String>, mut f: F)
     -> Result<Vec<String>, MRError> 
-    where F: FnMut(u32, Inode, &String ,&mut Ext4) {
+    where F: FnMut(u32, Inode, &String ,&Ext4) {
         let mut result = vec![];
         let path = match _args.get("path") {
             Some(s) => s,
@@ -40,8 +40,8 @@ impl Ext4Module {
                 
 
                 let jbd2 = self.ext4.get_jbd2().unwrap();
-                let jbd2_inodes = jbd2.find_inodes(i.get_id());
-                let ext4 = i_to_m(&self.ext4);
+                let jbd2_inodes = jbd2.find_inodes(i.get_id()).unwrap();
+                let ext4 = &self.ext4;
                 if !jbd2_inodes.is_empty() {
                     for jbd2_inode in jbd2_inodes {
                         f(i.get_id(), jbd2_inode, i.get_name(), ext4);

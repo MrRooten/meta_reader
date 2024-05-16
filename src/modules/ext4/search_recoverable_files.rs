@@ -65,7 +65,7 @@ impl Ext4Module {
                     }
                     name2.push_str(i.get_zero_end_name());
                     let jbd2 = self.ext4.get_jbd2().unwrap();
-                    let jbd2_inodes = jbd2.find_inodes(i.get_id());
+                    let jbd2_inodes = jbd2.find_inodes(i.get_id()).unwrap();
                     let ext4 = &mut self.ext4;
                     if !jbd2_inodes.is_empty() {
                         for jbd2_inode in jbd2_inodes {

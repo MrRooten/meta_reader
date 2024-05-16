@@ -16,6 +16,9 @@ pub fn m_to_i<T>(reference: &mut T) -> &T {
     }
 }
 
+use std::ops::Range;
+
+use bytes::Bytes;
 use colored::Colorize;
 use log::{Level, Log};
 
@@ -79,7 +82,7 @@ impl Log for Logger {
 
 use log::LevelFilter;
 
-use super::MRError;
+use super::{MRErrKind, MRError};
 
 
 
@@ -122,4 +125,9 @@ pub fn can_debug() -> bool {
     } }
 
     false
+}
+
+#[inline]
+pub fn sub_bytes(bs: &Bytes, range: Range<usize>) -> Result<&[u8], MRError> {
+    bs.get(range).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))
 }

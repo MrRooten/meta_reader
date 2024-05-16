@@ -1,6 +1,6 @@
 use bytes::{Bytes, Buf};
 
-use crate::utils::{MRError, file::MRFile};
+use crate::utils::{file::MRFile, funcs::sub_bytes, MRError};
 
 use super::{RegFile, RegFileHeader, HiveBin, HiveBinCell};
 
@@ -19,12 +19,12 @@ impl HiveBin {
             }
         };
         let bs = Bytes::from(bs);
-        let sign = bs[0..4].to_vec();
+        let sign = sub_bytes(&bs,0..4)?.to_vec();
         if !String::from_utf8_lossy(&sign).eq("hbin") {
             return Err(MRError::new("Not a valid Hive bin"));
         }
-        let offset = (&bs[4..8]).get_u32_le();
-        let size = (&bs[8..12]).get_u32_le();
+        let offset = (sub_bytes(&bs,4..8)?).get_u32_le();
+        let size = (sub_bytes(&bs,8..12)?).get_u32_le();
         let offset_of_start = offset;
         Ok(Self {
             sign,
@@ -37,17 +37,17 @@ impl HiveBin {
 
 impl RegFileHeader {
     pub fn from_bytes(bs: Bytes) -> Result<RegFileHeader,MRError> {
-        let sign = bs[0..4].to_vec();
+        let sign = sub_bytes(&bs,0..4)?.to_vec();
         if !String::from_utf8_lossy(&sign).eq("regf") {
             return Err(MRError::new(""));
         }
-        let primary_seq_num = (&bs[4..8]).get_u32_le();
-        let second_seq_num = (&bs[8..12]).get_u32_le();
-        let last_modify = (&bs[12..20]).get_u64_le();
-        let major_version = (&bs[20..24]).get_u32_le();
-        let minor_version = (&bs[24..28]).get_u32_le();
-        let root_key_offset = (&bs[36..40]).get_u32_le();
-        let hive_bins_data_size = (&bs[40..44]).get_u32_le();
+        let primary_seq_num = (sub_bytes(&bs,4..8)?).get_u32_le();
+        let second_seq_num = (sub_bytes(&bs,8..12)?).get_u32_le();
+        let last_modify = (sub_bytes(&bs,12..20)?).get_u64_le();
+        let major_version = (sub_bytes(&bs,20..24)?).get_u32_le();
+        let minor_version = (sub_bytes(&bs,24..28)?).get_u32_le();
+        let root_key_offset = (sub_bytes(&bs,36..40)?).get_u32_le();
+        let hive_bins_data_size = (sub_bytes(&bs,40..44)?).get_u32_le();
         Ok(Self {
             sign,
             primary_seq_num,

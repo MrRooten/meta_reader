@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write};
 
-use crate::{utils::MRError};
+use crate::utils::MRError;
 
 use super::Ext4Module;
 

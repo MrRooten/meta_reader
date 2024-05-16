@@ -10,7 +10,7 @@ use crate::{
 
 use super::Ext4Module;
 
-fn cache_inodes<F>(ext4: &mut Ext4, mut filter: F) -> Vec<(Range<usize>, u32)>
+fn cache_inodes<F>(ext4: &Ext4, mut filter: F) -> Vec<(Range<usize>, u32)>
 where
     F: FnMut(u64, &Inode) -> bool,
 {
@@ -61,7 +61,7 @@ impl Ext4Module {
         let bool_to_file: bool = true;
         let mut _inodes: Vec<(Range<usize>, u32)> = vec![];
         println!("Loading inodes....");
-        _inodes = cache_inodes(i_to_m(&self.ext4), |offset, entry| {
+        _inodes = cache_inodes(&self.ext4, |offset, entry| {
             true
         });
 

@@ -1,7 +1,7 @@
 use bytes::Buf;
 use std::ops::Range;
 
-use crate::utils::MRError;
+use crate::utils::{MRErrKind, MRError};
 
 use super::*;
 
@@ -20,7 +20,6 @@ impl GroupDescriptor {
             }
         }
     }
-
 
     pub fn get_inode_bitmap(&self) -> Range<usize> {
         unsafe {
@@ -63,8 +62,7 @@ impl GroupDescriptor {
             let index = (id - 1) % sb.s_inodes_per_group;
             let mut base = offset * ext4.get_block_size() + index as usize * 0x100;
             let bs = reader.read_n(base, 0x100).unwrap();
-            let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64);
-            Ok(inode)
+            Inode::parse(&Bytes::from(bs), ext4, base as u64)
         }
     }
 
@@ -93,7 +91,7 @@ impl GroupDescriptor {
             let mut base = offset * ext4.get_block_size();
             while i < len {
                 let bs = reader.read_n(base, 0x100).unwrap();
-                let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64);
+                let inode = Inode::parse(&Bytes::from(bs), ext4, base as u64).unwrap();
                 f(inode);
                 base += 0x100;
                 i += 1;
@@ -106,23 +104,63 @@ impl GroupDescriptor {
     }
 
     #[allow(clippy::field_reassign_with_default)]
-    pub fn parse(bs: Bytes, ext4_self: &Ext4) -> Self {
+    pub fn parse(bs: Bytes, ext4_self: &Ext4) -> Result<Self, MRError> {
         let mut s = Self::default();
         s.ext4_to_self = Some(ext4_self as *const Ext4);
-        s.bg_block_bitmap_lo = (&bs[0..4]).get_u32_le();
-        s.bg_inode_bitmap_lo = (&bs[4..8]).get_u32_le();
-        s.bg_inode_table_lo = (&bs[8..12]).get_u32_le();
-        s.bg_free_blocks_count_lo = (&bs[12..14]).get_u16_le();
-        s.bg_free_inodes_count_lo = (&bs[14..16]).get_u16_le();
+        s.bg_block_bitmap_lo = (bs.get(0..4).ok_or(MRError::new_with_kind(
+            "Out of range",
+            MRErrKind::OutOfByteRange,
+        ))?)
+        .get_u32_le();
+        s.bg_inode_bitmap_lo = (bs.get(4..8).ok_or(MRError::new_with_kind(
+            "Out of range",
+            MRErrKind::OutOfByteRange,
+        ))?)
+        .get_u32_le();
+        s.bg_inode_table_lo = (bs.get(8..12).ok_or(MRError::new_with_kind(
+            "Out of range",
+            MRErrKind::OutOfByteRange,
+        ))?)
+        .get_u32_le();
+        s.bg_free_blocks_count_lo = (bs.get(12..14).ok_or(MRError::new_with_kind(
+            "Out of range",
+            MRErrKind::OutOfByteRange,
+        ))?)
+        .get_u16_le();
+        s.bg_free_inodes_count_lo = (bs.get(14..16).ok_or(MRError::new_with_kind(
+            "Out of range",
+            MRErrKind::OutOfByteRange,
+        ))?)
+        .get_u16_le();
         let s_block = ext4_self.get_super_block().unwrap();
         s.is_64bit = s_block.is_64bit;
         if s_block.is_64bit {
-            s.bg_block_bitmap_hi = (&bs[0x20..0x24]).get_u32_le();
-            s.bg_inode_bitmap_hi = (&bs[0x24..0x28]).get_u32_le();
-            s.bg_inode_table_hi = (&bs[0x28..0x2c]).get_u32_le();
-            s.bg_free_blocks_count_hi = (&bs[0x2c..0x2e]).get_u16_le();
-            s.bg_free_inodes_count_hi = (&bs[0x2e..0x30]).get_u16_le();
+            s.bg_block_bitmap_hi = (bs.get(0x20..0x24).ok_or(MRError::new_with_kind(
+                "Out of range",
+                MRErrKind::OutOfByteRange,
+            ))?)
+            .get_u32_le();
+            s.bg_inode_bitmap_hi = (bs.get(0x24..0x28).ok_or(MRError::new_with_kind(
+                "Out of range",
+                MRErrKind::OutOfByteRange,
+            ))?)
+            .get_u32_le();
+            s.bg_inode_table_hi = (bs.get(0x28..0x2c).ok_or(MRError::new_with_kind(
+                "Out of range",
+                MRErrKind::OutOfByteRange,
+            ))?)
+            .get_u32_le();
+            s.bg_free_blocks_count_hi = (bs.get(0x2c..0x2e).ok_or(MRError::new_with_kind(
+                "Out of range",
+                MRErrKind::OutOfByteRange,
+            ))?)
+            .get_u16_le();
+            s.bg_free_inodes_count_hi = (bs.get(0x2e..0x30).ok_or(MRError::new_with_kind(
+                "Out of range",
+                MRErrKind::OutOfByteRange,
+            ))?)
+            .get_u16_le();
         }
-        s
+        Ok(s)
     }
 }

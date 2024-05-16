@@ -7,7 +7,7 @@ use crate::{
     file_struct::ntfs::{
         mft_impl::vec_u8_to_utf16string, FileReference, FileReference128, MFTValue, USNIdentifier,
     },
-    utils::{funcs::i_to_m, MRError},
+    utils::{funcs::i_to_m, MRErrKind, MRError},
 };
 
 use super::{DataDescriptor, FileTime, MFTEntry, Ntfs, USNChangeJournal, USNChangeJournalEntry};
@@ -87,26 +87,26 @@ impl USNChangeJournalEntry {
         if bs.len() < 60 || bs.len() % 8 != 0{
             return Err(MRError::new("size not right"));
         }
-        let size = (&bs[0..4]).get_u32_le();
-        let major_version = (&bs[4..6]).get_u16_le();
-        let minor_version = (&bs[6..8]).get_u16_le();
+        let size = (bs.get(0..4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+        let major_version = (bs.get(4..6).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
+        let minor_version = (bs.get(6..8).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
         if major_version == 2 {
             let file_ref = FileReference128 {
-                mft_index: (&bs[8..12]).get_u32_le() as u64,
-                seq_number: (&bs[12..16]).get_u32_le() as u64,
+                mft_index: (bs.get(8..12).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
+                seq_number: (bs.get(12..16).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
             };
             let parent_ref = FileReference128 {
-                mft_index: (&bs[16..20]).get_u32_le() as u64,
-                seq_number: (&bs[20..24]).get_u32_le() as u64,
+                mft_index: (bs.get(16..20).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
+                seq_number: (bs.get(20..24).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
             };
-            let update_usn = (&bs[24..32]).get_u64_le();
-            let update_time = FileTime::parse_from_u64((&bs[32..40]).get_u64());
-            let update_reason = (&bs[40..44]).get_u32_le();
-            let update_flag = (&bs[44..48]).get_u32_le();
-            let security_d_id = (&bs[48..52]).get_u32_le();
-            let f_flag = (&bs[52..56]).get_u32_le();
-            let name_size = (&bs[56..58]).get_u16_le();
-            let name_offset = (&bs[58..60]).get_u16_le();
+            let update_usn = (bs.get(24..32).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le();
+            let update_time = FileTime::parse_from_u64((bs.get(32..40).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64());
+            let update_reason = (bs.get(40..44).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let update_flag = (bs.get(44..48).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let security_d_id = (bs.get(48..52).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let f_flag = (bs.get(52..56).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let name_size = (bs.get(56..58).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
+            let name_offset = (bs.get(58..60).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
             let name = {
                 if name_size == 0 || name_offset == 0 {
                     Bytes::from(vec![])
@@ -140,21 +140,21 @@ impl USNChangeJournalEntry {
                 return Err(MRError::new("size not right"));
             }
             let file_ref = FileReference128 {
-                mft_index: (&bs[8..16]).get_u64_le(),
-                seq_number: (&bs[16..24]).get_u64_le(),
+                mft_index: (bs.get(8..16).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le(),
+                seq_number: (bs.get(16..24).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le(),
             };
             let parent_ref = FileReference128 {
-                mft_index: (&bs[24..32]).get_u32_le() as u64,
-                seq_number: (&bs[32..40]).get_u32_le() as u64,
+                mft_index: (bs.get(24..32).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
+                seq_number: (bs.get(32..40).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le() as u64,
             };
-            let update_usn = (&bs[40..48]).get_u64_le();
-            let update_time = FileTime::parse_from_u64((&bs[48..56]).get_u64());
-            let update_reason = (&bs[56..60]).get_u32_le();
-            let update_flag = (&bs[60..64]).get_u32_le();
-            let security_d_id = (&bs[64..68]).get_u32_le();
-            let f_flag = (&bs[68..72]).get_u32_le();
-            let name_size = (&bs[72..74]).get_u16_le();
-            let name_offset = (&bs[74..76]).get_u16_le();
+            let update_usn = (bs.get(40..48).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64_le();
+            let update_time = FileTime::parse_from_u64((bs.get(48..56).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u64());
+            let update_reason = (bs.get(56..60).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let update_flag = (bs.get(60..64).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let security_d_id = (bs.get(64..68).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let f_flag = (bs.get(68..72).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
+            let name_size = (bs.get(72..74).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
+            let name_offset = (bs.get(74..76).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u16_le();
             let name = {
                 if name_size == 0 || name_offset == 0 {
                     Bytes::from(vec![])
@@ -212,7 +212,7 @@ impl USNChangeJournal {
         let mut i = 0;
         let mut offset = 0;
         while offset < bs.len() {
-            let entry_size = (&bs[offset..offset + 4]).get_u32_le();
+            let entry_size = (bs.get(offset..offset + 4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
             if entry_size == 0 || entry_size > 512 {
                 offset += 0x8;
                 continue;
@@ -408,7 +408,7 @@ impl USNChangeJournal {
         let bs = Bytes::from(tmp_data);
         let mut result = vec![];
         while offset < bs.len() {
-            let entry_size = (&bs[offset..offset + 4]).get_u32_le();
+            let entry_size = (bs.get(offset..offset + 4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
             if entry_size == 0 || entry_size > 512 {
                 offset += 0x8;
                 continue;
@@ -445,7 +445,7 @@ impl USNChangeJournal {
         let mut offset = 0;
         let bs = Bytes::from(tmp_data);
         while offset < bs.len() {
-            let entry_size = (&bs[offset..offset + 4]).get_u32_le();
+            let entry_size = (bs.get(offset..offset + 4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
             if entry_size == 0 || entry_size > 512 {
                 offset += 0x8;
                 continue;
@@ -481,7 +481,7 @@ impl USNChangeJournal {
         let mut i = 0;
         let mut offset = 0;
         while i < n {
-            let entry_size = (&bs[offset..offset + 4]).get_u32_le();
+            let entry_size = (bs.get(offset..offset + 4).ok_or(MRError::new_with_kind("Out of range", MRErrKind::OutOfByteRange))?).get_u32_le();
             let v = USNChangeJournalEntry::parse(bs.slice(offset..offset + entry_size as usize));
             let v = match v {
                 Ok(o) => o,

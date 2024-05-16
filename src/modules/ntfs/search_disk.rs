@@ -26,7 +26,7 @@ pub fn vs_contains_sub(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 fn ref_file(
     mfts: &[(Range<usize>, u64)],
-    ntfs: &mut Ntfs,
+    ntfs: &Ntfs,
     offset: u64,
     drive: &str,
     is_ref_file: bool,
@@ -265,7 +265,7 @@ impl NtfsModule {
                             sub,
                             ref_file(
                                 &_mfts,
-                                i_to_m(ntfs),
+                                ntfs,
                                 progress + size.unwrap() as u64,
                                 drive,
                                 bool_to_file
@@ -285,7 +285,7 @@ impl NtfsModule {
                                 rs,
                                 ref_file(
                                     &_mfts,
-                                    i_to_m(ntfs),
+                                    ntfs,
                                     progress + mt.start() as u64,
                                     drive,
                                     bool_to_file

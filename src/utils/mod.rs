@@ -8,6 +8,7 @@ pub mod log;
 #[derive(Debug)]
 pub enum MRErrKind {
     None,
+    OutOfByteRange
 }
 
 impl Default for MRErrKind {
@@ -21,7 +22,8 @@ impl Display for MRErrKind {
         match self {
             Self::None => {
                 write!(f, "None")
-            }
+            },
+            MRErrKind::OutOfByteRange => todo!(),
         }
         
     }

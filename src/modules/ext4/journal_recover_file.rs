@@ -26,7 +26,7 @@ impl Ext4Module {
         };
 
         let jbd2 = self.ext4.get_jbd2().unwrap();
-        let inodes = jbd2.find_inodes(inode_id);
+        let inodes = jbd2.find_inodes(inode_id)?;
         let mut count = 0;
         for i in inodes {
             if let Ok(o) = i.get_extents_value() {
