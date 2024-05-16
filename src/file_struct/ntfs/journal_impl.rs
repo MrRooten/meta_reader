@@ -243,7 +243,7 @@ impl USNChangeJournal {
     fn get_data_runs(&self) -> Result<Vec<DataDescriptor>, MRError> {
         let data_runs: Vec<DataDescriptor>;
         if self.mft.map_attr_chains.get(&0x20).is_some() {
-            let ntfs = unsafe { &*self.ntfs.unwrap() };
+            let ntfs = self.get_ntfs();
             let mut _data_runs: Option<Vec<DataDescriptor>> = None;
             if let Some(attrs) = self.mft.map_attr_chains.get(&0x20) {
                 let attr = attrs.first().unwrap();
@@ -299,6 +299,10 @@ impl USNChangeJournal {
         Ok(data_runs)
     }
 
+    fn get_ntfs(&self) -> &Ntfs {
+        unsafe { &* self.ntfs.unwrap() }
+    }
+
     pub fn read_all(&self) -> Result<Vec<u8>, MRError> {
         let data_runs: Vec<DataDescriptor> = match self.get_data_runs() {
             Ok(o) => o,
@@ -308,7 +312,7 @@ impl USNChangeJournal {
         };
 
         let mut result = vec![];
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
 
         for data in data_runs {
             if data.datasize > 20*1024*1024 {
@@ -335,7 +339,7 @@ impl USNChangeJournal {
         let real_n = n;
         let mut last_n = real_n as u64;
         let mut last_addr = addr as u64;
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         for data in &data_runs {
             if last_addr > data.datasize {
                 last_addr -= data.datasize;
@@ -398,7 +402,7 @@ impl USNChangeJournal {
                 return Err(e);
             }
         };
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         let data = &data_runs[data_runs.len()-1];
         let tmp_data = ntfs
             .reader
@@ -436,7 +440,7 @@ impl USNChangeJournal {
                 return Err(e);
             }
         };
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         let data = data_runs.last().unwrap();
         let tmp_data = ntfs
             .reader

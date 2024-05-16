@@ -23,7 +23,7 @@ impl NtfsModule {
         };
         let mft_mft = self.ntfs.get_datas_of_mft();
         let mut total = 0;
-        for mft in mft_mft {
+        for mft in &*mft_mft.borrow() {
             total += mft.get_datasize();
         }
 

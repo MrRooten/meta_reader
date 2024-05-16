@@ -114,7 +114,7 @@ impl MFTEntry {
             }
         };
         names.push(filename);
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         let parent_index = self.get_parent_index();
         if parent_index < 5 {
             names.reverse();
@@ -301,6 +301,10 @@ impl MFTEntry {
         unimplemented!()
     }
 
+    fn get_ntfs(&self) -> &Ntfs{
+        unsafe { &*self.ntfs.unwrap() }
+    }
+
     pub fn read_n_in_stream(
         &self,
         addr: usize,
@@ -317,7 +321,7 @@ impl MFTEntry {
         let real_n = n;
         let mut last_n = real_n as u64;
         let mut last_addr = addr as u64;
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         for data in &datas.datas {
             if last_addr > data.datasize {
                 last_addr -= data.datasize;
@@ -379,7 +383,7 @@ impl MFTEntry {
         let real_n = n;
         let mut last_n = real_n as u64;
         let mut last_addr = addr as u64;
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
 
         if let Some(_t) = attrs.iter().next() {
             if let MFTValue::Data(datas) = &_t.value {
@@ -1255,11 +1259,15 @@ impl ValueA0_IndexAlloction {
         self.values.borrow().is_some()
     }
 
+    fn get_ntfs(&self) -> &Ntfs {
+        unsafe { &*self.ntfs.unwrap() }
+    }
+
     pub fn init_value(&self) {
         if self.values.borrow().is_some() {
             return;
         }
-        let ntfs = unsafe { &*self.ntfs.unwrap() };
+        let ntfs = self.get_ntfs();
         let bs = Bytes::from(
             ntfs.reader
                 .read_n(

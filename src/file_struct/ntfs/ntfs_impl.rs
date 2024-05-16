@@ -68,10 +68,9 @@ impl Ntfs {
         })
     }
 
-    pub fn get_datas_of_mft(&self) -> &Vec<DataDescriptor> {
+    pub fn get_datas_of_mft(&self) -> &RefCell<Vec<DataDescriptor>> {
         if !self.datas_of_mft.borrow().is_empty() {
-            let p = self.datas_of_mft.as_ptr();
-            return unsafe { &*p };
+            return &self.datas_of_mft
         }
 
         let offset = self.get_mft_offset() as usize;
@@ -90,8 +89,7 @@ impl Ntfs {
         // if let MFTValue::Data(data) = _t {
         //     self.datas_of_mft = data.datas.clone();
         // }
-        let p = self.datas_of_mft.as_ptr();
-        unsafe { &*p }
+        &self.datas_of_mft
     }
 
     pub fn get_usn_journal(&mut self) -> Result<USNChangeJournal, MRError> {
@@ -198,7 +196,7 @@ impl Ntfs {
         let datas = self.get_datas_of_mft();
         let mut is_deleted = false;
         let reader = self.get_reader();
-        for data in datas {
+        for data in &*datas.borrow() {
             let d = data.datasize as usize;
 
             let block = self.get_mft_size() * 0x100;
@@ -255,7 +253,7 @@ impl Ntfs {
         let mut _index = index;
         let mft_size = self.get_mft_size();
         let datas = self.get_datas_of_mft();
-        for data in datas {
+        for data in &*datas.borrow() {
             let mft_cap = data.datasize / mft_size as u64;
             if _index > mft_cap {
                 _index -= mft_cap;
@@ -320,7 +318,7 @@ impl Ntfs {
         let mut _index = index;
         let mft_size = self.get_mft_size();
         let datas = self.get_datas_of_mft();
-        for data in datas {
+        for data in &*datas.borrow() {
             let mft_cap = data.datasize / mft_size as u64;
             if _index > mft_cap {
                 _index -= mft_cap;

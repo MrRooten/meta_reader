@@ -174,13 +174,17 @@ impl Journal {
         })
     }
 
+    fn get_ext4(&self) -> &Ext4 {
+        unsafe { &*self.ext4.unwrap() }
+    }
+
     pub fn iter_transaction<F>(&self, f: &mut F)
     where
         F: FnMut(&JournalTransaction),
     {
-        unsafe {
+
             let i = 1;
-            let ext4 = &*self.ext4.unwrap();
+            let ext4 = self.get_ext4();
             let reader = ext4.get_reader();
 
             let mut base_offset = self.offset + self.super_block.s_blocksize as usize;
@@ -219,7 +223,7 @@ impl Journal {
                 f(&transaction);
                 base_offset += (count + 2) * self.super_block.s_blocksize as usize;
             }
-        }
+        
     }
 
     pub fn reset_iter(&mut self) {
@@ -241,7 +245,7 @@ impl Journal {
 
     pub fn find_inodes(&self, id: u32) -> Result<Vec<Inode>, MRError> {
         let mut result = vec![];
-        let ext4 = unsafe { &(*self.ext4.unwrap()) };
+        let ext4 = self.get_ext4();
         let reader = ext4.get_reader();
         let block_size = ext4.get_block_size();
         let s_inodes_per_group = ext4.get_s_inodes_per_group()?;
@@ -272,7 +276,7 @@ impl Journal {
     where
         F: FnMut(u32, &Inode),
     {
-        let ext4 = unsafe { &*self.ext4.unwrap() };
+        let ext4 = self.get_ext4();
         let reader = ext4.get_reader();
         let gdts = ext4.get_descs().unwrap();
         self.iter_transaction(&mut |transaction| {
