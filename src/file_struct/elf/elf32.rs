@@ -1,7 +1,8 @@
+use std::cell::RefCell;
 use std::ops::RangeBounds;
 
 use bytes::{Bytes, Buf};
-use crate::utils::{file::MRFile, MRError, funcs::i_to_m};
+use crate::utils::{file::MRFile, MRError};
 
 use super::elf64::get_str_to_zero;
 use super::elf_pub::{ElfN_Ehdr,ElfN_Phdr, ShdrType};
@@ -141,8 +142,8 @@ pub struct Elf32_Shdr {
     sh_addralign: u32,
     sh_entsize: u32,
     self_elf: Option<*const ELF32>,
-    data    : Bytes,
-    name    : String
+    data    : RefCell<Bytes>,
+    name    : RefCell<String>
 }
 
 impl Elf32_Shdr {
@@ -159,14 +160,14 @@ impl Elf32_Shdr {
             sh_addralign: (bytes.slice(32..36)).get_u32_le(),
             sh_entsize: (bytes.slice(36..40)).get_u32_le(),
             self_elf: Some(elf as *const ELF32),
-            data    : Bytes::default(),
-            name    : "".to_string()
+            data    : RefCell::new(Bytes::default()),
+            name    : RefCell::new("".to_string())
         }
     }
 
-    pub fn get_name(&self) -> &String {
+    pub fn get_name(&self) -> &RefCell<String> {
         unsafe {
-            if !self.name.is_empty() {
+            if !self.name.borrow().is_empty() {
                 return &self.name;
             }
             let data = (*self.self_elf.unwrap()).get_shtab();
@@ -180,8 +181,8 @@ impl Elf32_Shdr {
                 }
             }
 
-            i_to_m(self).name = std::str::from_utf8(&data[start..index])
-                .unwrap_or("None").to_string();
+            self.name.replace(std::str::from_utf8(&data[start..index])
+                .unwrap_or("None").to_string());
             &self.name
         }
     }
@@ -192,15 +193,15 @@ impl Elf32_Shdr {
         }
     }
 
-    pub fn get_data(&self) -> &Bytes {
+    pub fn get_data(&self) -> &RefCell<Bytes> {
         unsafe {
-            if !self.data.is_empty() {
+            if !self.data.borrow().is_empty() {
                 return &self.data;
             }
             let elf = self.get_elf();
             let data = elf.get_elf();
-            //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
-            i_to_m(self).data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
+
+            self.data.replace(Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap()));
             &self.data
         }
     }
@@ -233,7 +234,7 @@ impl Elf32_Sym {
         unsafe {
             let elf = &(*self.self_elf.unwrap());
             let str_data = elf.get_strtab_data();
-            get_str_to_zero(str_data, self.st_name as usize).unwrap_or("".to_string())
+            get_str_to_zero(&str_data.borrow(), self.st_name as usize).unwrap_or("".to_string())
         }
     }
 
@@ -248,7 +249,7 @@ pub struct ELF32 {
     phdrs: Vec<Elf32_Phdr>,
     shdrs: Vec<Elf32_Shdr>,
     shtab: Vec<u8>,
-    symstrtab : Vec<u8>,
+    symstrtab : RefCell<Vec<u8>>,
     elf_file    : Option<MRFile>
 }
 
@@ -306,20 +307,20 @@ impl ELF32 {
 
         let data = symtab.get_data();
         let mut index = 0;
-        while index <= data.len()-16 {
-            let sym = Elf32_Sym::parse(&data.slice(index..index+16),self);
+        while index <= data.borrow().len()-16 {
+            let sym = Elf32_Sym::parse(&data.borrow().slice(index..index+16),self);
             result.push(sym);
             index += 16;
         }
         Ok(result)
     }
 
-    pub fn get_strtab_data(&self) -> &Vec<u8> {
-        if !self.symstrtab.is_empty() {
+    pub fn get_strtab_data(&self) -> &RefCell<Vec<u8>> {
+        if !self.symstrtab.borrow().is_empty() {
             return &self.symstrtab;
         }
         let mut result: Vec<u8> = Vec::default();
-        i_to_m(self).symstrtab = self.shdrs[self.get_shnum()-1].get_data().to_vec();
+        self.symstrtab.replace(self.shdrs[self.get_shnum()-1].get_data().borrow().to_vec());
         &self.symstrtab
     }
 }

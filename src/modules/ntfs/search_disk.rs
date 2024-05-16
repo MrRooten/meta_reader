@@ -8,7 +8,7 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{
     file_struct::ntfs::{MFTEntry, Ntfs},
-    utils::{funcs::i_to_m, MRError},
+    utils::MRError,
 };
 
 use super::{MatchType, NtfsModule};

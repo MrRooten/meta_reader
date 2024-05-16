@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{utils::{MRError, funcs::i_to_m}, file_struct::ext4::{Inode, Ext4}};
+use crate::{utils::MRError, file_struct::ext4::{Inode, Ext4}};
 
 use super::Ext4Module;
 

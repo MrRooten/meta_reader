@@ -12,7 +12,7 @@ use meta_reader::{
         ntfs::{Ntfs, MFTEntry},
     },
     modules::{ext4::Ext4Module, ntfs::NtfsModule},
-    utils::{file::filesize_to_human_string, funcs::i_to_m}, cmd::cli::cmd_prcess,
+    utils::{file::filesize_to_human_string}, cmd::cli::cmd_prcess,
 };
 
 static mut PASSWD: Option<HashMap<u16, String>> = None;

@@ -1,9 +1,9 @@
 
-use std::{cell::RefCell, fs, io::BufRead, ops::Range};
+use std::{borrow::Borrow, cell::RefCell, fs, io::BufRead, ops::Range};
 
 use bytes::{Buf, Bytes, BytesMut};
 
-use crate::utils::{MRError, funcs::i_to_m, file::MRFile};
+use crate::utils::{MRError, file::MRFile};
 use super::elf_pub::{ElfN_Ehdr,ElfN_Phdr, ShdrType};
 
 
@@ -129,7 +129,7 @@ pub struct Elf64_Shdr {
     sh_entsize: u64,
     self_elf: Option<*const ELF64>,
     data    : RefCell<Bytes>,
-    name    : String
+    name    : RefCell<String>
 }
 
 
@@ -149,13 +149,13 @@ impl Elf64_Shdr {
             sh_entsize: (&bytes[56..64]).get_u64_le(),
             self_elf: Some(elf as *const ELF64),
             data    : RefCell::new(Bytes::default()),
-            name    : "".to_string()
+            name    : RefCell::new("".to_string())
         }
     }
 
-    pub fn get_name(&self) -> &String {
+    pub fn get_name(&self) -> &RefCell<String> {
         unsafe {
-            if !self.name.is_empty() {
+            if !self.name.borrow().is_empty() {
                 return &self.name;
             }
             let data = (*self.self_elf.unwrap()).get_shtab();
@@ -169,8 +169,8 @@ impl Elf64_Shdr {
                 }
             }
 
-            i_to_m(self).name = std::str::from_utf8(&data[start..index])
-                .unwrap_or("None").to_string();
+            self.name.replace(std::str::from_utf8(&data[start..index])
+                .unwrap_or("None").to_string());
             &self.name
         }
     }
@@ -181,18 +181,16 @@ impl Elf64_Shdr {
         }
     }
 
-    pub fn get_data(&self) -> &Bytes {
-        unimplemented!()
-        // unsafe {
-        //     if !self.data.is_empty() {
-        //         return &self.data;
-        //     }
-        //     let elf = self.get_elf();
-        //     let data = elf.get_elf();
-        //     //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
-        //     self.data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
-        //     &self.data
-        // }
+    pub fn get_data(&self) -> &RefCell<Bytes> {
+        unsafe {
+            if !self.data.borrow().is_empty() {
+                return &self.data;
+            }
+            let elf = self.get_elf();
+            let data = elf.get_elf();
+            self.data.replace(Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap()));
+            &self.data
+        }
     }
 
 }
@@ -244,7 +242,7 @@ impl Elf64_Sym {
         unsafe {
             let elf = &(*self.self_elf.unwrap());
             let str_data = elf.get_strtab_data();
-            get_str_to_zero(str_data, self.st_name as usize).unwrap_or("".to_string())
+            get_str_to_zero(&str_data.borrow(), self.st_name as usize).unwrap_or("".to_string())
         }
     }
 
@@ -260,7 +258,7 @@ pub struct ELF64 {
     phdrs: Vec<Elf64_Phdr>,
     shdrs: Vec<Elf64_Shdr>,
     shtab: Vec<u8>,
-    symstrtab : Vec<u8>,
+    symstrtab : RefCell<Vec<u8>>,
     elf_file    : Option<MRFile>
 }
 
@@ -314,20 +312,20 @@ impl ELF64 {
 
         let data = symtab.get_data();
         let mut index = 0;
-        while index <= data.len()-24 {
-            let sym = Elf64_Sym::parse(&data.slice(index..index+24),self);
+        while index <= data.borrow().len()-24 {
+            let sym = Elf64_Sym::parse(&data.borrow().slice(index..index+24),self);
             result.push(sym);
             index += 24;
         }
         Ok(result)
     }
 
-    pub fn get_strtab_data(&self) -> &Vec<u8> {
-        if !self.symstrtab.is_empty() {
+    pub fn get_strtab_data(&self) -> &RefCell<Vec<u8>> {
+        if !self.symstrtab.borrow().is_empty() {
             return &self.symstrtab;
         }
         let mut result: Vec<u8> = Vec::default();
-        i_to_m(self).symstrtab = self.shdrs[self.get_shnum()-1].get_data().to_vec();
+        self.symstrtab.replace(self.shdrs[self.get_shnum()-1].get_data().borrow().to_vec());
         &self.symstrtab
     }
 
@@ -345,14 +343,8 @@ impl ELF64 {
         }
 
         let commend_section = commend_section.unwrap();
-        let s = std::str::from_utf8(commend_section.get_data());
-        let s = match s {
-            Ok(str) => str,
-            Err(e) => {
-                return Err(MRError::from(Box::new(e)));
-            }
-        };
-        Ok(s.to_string())
+        let s = std::str::from_utf8(&commend_section.get_data().borrow()).unwrap().to_string();
+        Ok(s)
     }
 }
 
