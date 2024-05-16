@@ -5,7 +5,7 @@ use indicatif::{ProgressState, ProgressStyle};
 use crate::{
     file_struct::ext4::{Ext4, Inode},
     modules::ntfs::MatchType,
-    utils::{funcs::i_to_m, MRError},
+    utils::MRError,
 };
 
 use super::Ext4Module;

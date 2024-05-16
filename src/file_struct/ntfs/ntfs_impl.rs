@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs, io::Write, ops::Range, rc::Rc, path::Path};
+use std::{cell::RefCell, collections::HashMap, fs, io::Write, ops::Range, path::Path, rc::Rc};
 
 use bytes::{Buf, Bytes};
 
 use crate::utils::{
-    file::MRFile, funcs::{i_to_m, m_to_i}, MRErrKind, MRError
+    file::MRFile, MRErrKind, MRError
 };
 
 use super::{DataDescriptor, FileItem, MFTEntry, MFTValue, Ntfs, USNChangeJournal, Value20_AttributeList};
@@ -63,14 +63,15 @@ impl Ntfs {
             index_entry_size,
             is_bitlocker,
             version: None,
-            datas_of_mft: vec![],
+            datas_of_mft: RefCell::new(vec![]),
             cache_mfts: None,
         })
     }
 
-    pub fn get_datas_of_mft(&mut self) -> &Vec<DataDescriptor> {
-        if !self.datas_of_mft.is_empty() {
-            return &self.datas_of_mft;
+    pub fn get_datas_of_mft(&self) -> &Vec<DataDescriptor> {
+        if !self.datas_of_mft.borrow().is_empty() {
+            let p = self.datas_of_mft.as_ptr();
+            return unsafe { &*p };
         }
 
         let offset = self.get_mft_offset() as usize;
@@ -80,7 +81,8 @@ impl Ntfs {
         for data_values in datas_values {
             let _t = &data_values.value;
             if let MFTValue::Data(data) = _t {
-                self.datas_of_mft.extend(data.datas.clone());
+                let mut v = self.datas_of_mft.borrow_mut();
+                v.extend(data.datas.clone());
             }
         }
         // let data_values = mft.map_attr_chains.get(&0x80).unwrap().first().unwrap();
@@ -88,7 +90,8 @@ impl Ntfs {
         // if let MFTValue::Data(data) = _t {
         //     self.datas_of_mft = data.datas.clone();
         // }
-        &self.datas_of_mft
+        let p = self.datas_of_mft.as_ptr();
+        unsafe { &*p }
     }
 
     pub fn get_usn_journal(&mut self) -> Result<USNChangeJournal, MRError> {
@@ -98,27 +101,6 @@ impl Ntfs {
                 return Err(e);
             }
         };
-        // let chains = i_to_m(usn_jrnl.map_attr_chains.get(&0x20).unwrap());
-        // for attr in chains {
-        //     if let MFTValue::AttrList(s) = &mut attr.value {
-        //         s.init();
-        //         if let Some(list) = &s.list {
-        //             for v20a in list {
-        //                 if v20a.name.contains("$J") {
-        //                     let j_index = v20a.file_reference.mft_index;
-        //                     let j_data = match self.get_mft_entry_by_index(j_index) {
-        //                         Some(o) => o,
-        //                         None => {
-        //                             return Err(MRError::new("not fount usn jrnl data: get_mft_entry_by_index"));
-        //                         }
-        //                     };
-        //                     //unimplemented!();
-        //                     return USNChangeJournal::from_mft(j_data);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
 
         USNChangeJournal::from_mft(usn_jrnl, self)
     }
@@ -209,11 +191,11 @@ impl Ntfs {
 
     pub fn iter_mft<F>(&self, mut f: F)
     where
-        F: FnMut(u64, Result<MFTEntry, MRError>, bool, &mut Ntfs),
+        F: FnMut(u64, Result<MFTEntry, MRError>, bool, &Ntfs),
     {
         let mut index = 0;
         let mft_size = self.get_mft_size();
-        let datas = i_to_m(self).get_datas_of_mft();
+        let datas = self.get_datas_of_mft();
         let mut is_deleted = false;
         let reader = self.get_reader();
         for data in datas {
@@ -250,7 +232,7 @@ impl Ntfs {
                         );
                     
                     if let Ok(o) = entry {
-                        f(index, Ok(o), is_deleted, i_to_m(self));
+                        f(index, Ok(o), is_deleted, self);
                     }
                     
                     index += 1;
@@ -272,7 +254,7 @@ impl Ntfs {
     pub fn get_mft_entry_by_index(&self, index: u64) -> Option<MFTEntry> {
         let mut _index = index;
         let mft_size = self.get_mft_size();
-        let datas = i_to_m(self).get_datas_of_mft();
+        let datas = self.get_datas_of_mft();
         for data in datas {
             let mft_cap = data.datasize / mft_size as u64;
             if _index > mft_cap {
@@ -315,7 +297,7 @@ impl Ntfs {
             return self.version;
         }
 
-        if self.datas_of_mft.is_empty() {
+        if self.datas_of_mft.borrow().is_empty() {
             return None;
         }
         let volume_index = 3;
@@ -337,7 +319,7 @@ impl Ntfs {
     pub fn is_deleted_by_index(&self, index: u64) -> bool {
         let mut _index = index;
         let mft_size = self.get_mft_size();
-        let datas = i_to_m(self).get_datas_of_mft();
+        let datas = self.get_datas_of_mft();
         for data in datas {
             let mft_cap = data.datasize / mft_size as u64;
             if _index > mft_cap {

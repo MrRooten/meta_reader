@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bytes::Bytes;
 
@@ -22,7 +22,7 @@ pub struct Ntfs {
     is_bitlocker                : bool,
     version                     : Option<(u8,u8)>,
     reader                      : MRFile,
-    datas_of_mft                : Vec<DataDescriptor>,
+    datas_of_mft                : RefCell<Vec<DataDescriptor>>,
     cache_mfts                  : Option<Vec<(Range<usize>, Rc<MFTEntry>)>>
 }
 
