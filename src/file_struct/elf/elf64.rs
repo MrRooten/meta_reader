@@ -1,5 +1,5 @@
 
-use std::{fs, io::BufRead, ops::Range};
+use std::{cell::RefCell, fs, io::BufRead, ops::Range};
 
 use bytes::{Buf, Bytes, BytesMut};
 
@@ -128,7 +128,7 @@ pub struct Elf64_Shdr {
     sh_addralign: u64,
     sh_entsize: u64,
     self_elf: Option<*const ELF64>,
-    data    : Bytes,
+    data    : RefCell<Bytes>,
     name    : String
 }
 
@@ -148,7 +148,7 @@ impl Elf64_Shdr {
             sh_addralign: (&bytes[48..56]).get_u64_le(),
             sh_entsize: (&bytes[56..64]).get_u64_le(),
             self_elf: Some(elf as *const ELF64),
-            data    : Bytes::default(),
+            data    : RefCell::new(Bytes::default()),
             name    : "".to_string()
         }
     }
@@ -182,16 +182,17 @@ impl Elf64_Shdr {
     }
 
     pub fn get_data(&self) -> &Bytes {
-        unsafe {
-            if !self.data.is_empty() {
-                return &self.data;
-            }
-            let elf = self.get_elf();
-            let data = elf.get_elf();
-            //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
-            i_to_m(self).data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
-            &self.data
-        }
+        unimplemented!()
+        // unsafe {
+        //     if !self.data.is_empty() {
+        //         return &self.data;
+        //     }
+        //     let elf = self.get_elf();
+        //     let data = elf.get_elf();
+        //     //i_to_m(self).data = data.slice(self.sh_offset.0 as usize..(self.sh_offset.0+self.sh_size) as usize);
+        //     self.data = Bytes::from(elf.get_elf().read_n(self.sh_offset.0 as usize, self.sh_size as usize).unwrap());
+        //     &self.data
+        // }
     }
 
 }
@@ -260,7 +261,7 @@ pub struct ELF64 {
     shdrs: Vec<Elf64_Shdr>,
     shtab: Vec<u8>,
     symstrtab : Vec<u8>,
-    elf_file    : MRFile
+    elf_file    : Option<MRFile>
 }
 
 impl ELF64 {
@@ -285,7 +286,7 @@ impl ELF64 {
     }
 
     pub fn get_elf(&self) -> &MRFile {
-        &self.elf_file
+        self.elf_file.as_ref().unwrap()
     }
 
     pub fn get_shdrs(&self) -> &Vec<Elf64_Shdr> {
@@ -383,7 +384,7 @@ impl ELF64 {
         let section = &elf.shdrs[elf.get_shnum()];
 
         elf.shtab = mr_f.read_n(section.sh_offset.0 as usize, section.sh_size as usize).unwrap();
-        elf.elf_file = mr_f;
+        elf.elf_file = Some(mr_f);
         elf
     }
 

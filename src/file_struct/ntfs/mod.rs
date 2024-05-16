@@ -215,9 +215,9 @@ pub struct FixupValue {
 pub struct ValueA0_IndexAlloction {
     offset      : u64,
     size        : u64,
-    entry_header: Option<Vec<IndexEntryHeader>>,
-    node_header : Option<Vec<IndexNodeHeader>>,
-    values      : Option<Vec<IndexValue>>,
+    entry_header: RefCell<Option<Vec<IndexEntryHeader>>>,
+    node_header : RefCell<Option<Vec<IndexNodeHeader>>>,
+    values      : RefCell<Option<Vec<IndexValue>>>,
     ntfs        : Option<*const Ntfs>
 }
 
@@ -279,7 +279,7 @@ pub struct MFTStream {
 
 #[derive(Debug)]
 pub struct MFTEntry {
-    parent_index                : i64,
+    parent_index                : RefCell<i64>,
     index                       : u64,
     fix_up_value_offset         : u16,
     number_fix_up_values        : u16,

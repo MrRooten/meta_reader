@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs, io::Write, mem::align_of, panic};
+use std::{cell::RefCell, collections::HashMap, fs, io::Write, mem::align_of, panic};
 
 use bytes::{Buf, Bytes};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 
-use crate::utils::{funcs::{i_to_m, sub_bytes}, MRError};
+use crate::utils::{funcs::sub_bytes, MRError};
 
 use super::{
     CCommon, CNonResident, CResident, DataDescriptor, FileItem, FileReference, FileTime,
@@ -84,15 +84,15 @@ impl MFTEntry {
     }
 
     pub fn get_parent_index(&self) -> i64 {
-        if self.parent_index > 0 {
-            return self.parent_index;
+        if *self.parent_index.borrow() > 0 {
+            return *self.parent_index.borrow();
         }
 
         let attr = self.map_attr_chains.get(&0x30).unwrap().first().unwrap();
         if let MFTValue::FileName(s) = &attr.value {
-            i_to_m(self).parent_index = s.parent_file_num as i64;
+            self.parent_index.replace(s.parent_file_num as i64);
         }
-        self.parent_index
+        *self.parent_index.borrow()
     }
 
     pub fn contains_attr(&self, key: u32) -> bool {
@@ -114,7 +114,7 @@ impl MFTEntry {
             }
         };
         names.push(filename);
-        let ntfs = i_to_m(unsafe { &*self.ntfs.unwrap() });
+        let ntfs = unsafe { &*self.ntfs.unwrap() };
         let parent_index = self.get_parent_index();
         if parent_index < 5 {
             names.reverse();
@@ -517,7 +517,7 @@ impl MFTEntry {
             map_attr_chains,
             ntfs: Some(ntfs),
             index,
-            parent_index: -1,
+            parent_index: RefCell::new(-1),
         })
     }
 
@@ -531,8 +531,9 @@ impl MFTEntry {
         if let Some(indexs_a0) = self.map_attr_chains.get(&0xa0) {
             for index in indexs_a0 {
                 if let MFTValue::IndexAlloc(is) = &index.value {
-                    i_to_m(is).init_value();
-                    let vs = match &is.values {
+                    is.init_value();
+                    let v = is.values.borrow();
+                    let vs = match &*v {
                         Some(s) => s,
                         None => {
                             continue;
@@ -1214,10 +1215,10 @@ impl ValueA0_IndexAlloction {
             Ok(Self {
                 offset: 0,
                 size: 0,
-                node_header: Some(vec![node_header]),
-                values: Some(values),
+                node_header: RefCell::new(Some(vec![node_header])),
+                values: RefCell::new(Some(values)),
                 ntfs: Some(ntfs),
-                entry_header: Some(vec![entry_header]),
+                entry_header: RefCell::new(Some(vec![entry_header])),
             })
         } else {
             let _tmp = (sub_bytes(&bs,0..1)?).get_u8();
@@ -1242,20 +1243,20 @@ impl ValueA0_IndexAlloction {
             Ok(Self {
                 offset,
                 size,
-                node_header: None,
-                values: None,
+                node_header: RefCell::new(None),
+                values: RefCell::new(None),
                 ntfs: Some(ntfs),
-                entry_header: None,
+                entry_header: RefCell::new(None),
             })
         }
     }
 
     pub fn is_init(&self) -> bool {
-        self.values.is_some()
+        self.values.borrow().is_some()
     }
 
-    pub fn init_value(&mut self) {
-        if self.values.is_some() {
+    pub fn init_value(&self) {
+        if self.values.borrow().is_some() {
             return;
         }
         let ntfs = unsafe { &*self.ntfs.unwrap() };
@@ -1305,9 +1306,9 @@ impl ValueA0_IndexAlloction {
             origin_base = base;
         }
 
-        self.node_header = Some(node_headers);
-        self.entry_header = Some(entry_headers);
-        self.values = Some(values);
+        self.node_header.replace(Some(node_headers));
+        self.entry_header.replace(Some(entry_headers));
+        self.values.replace(Some(values));
     }
 }
 

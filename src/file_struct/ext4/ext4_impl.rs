@@ -20,14 +20,14 @@ impl Ext4 {
         };
 
         Ok(Ext4 {
-            reader: mr_file,
+            reader: Some(mr_file),
             ..Default::default()
         })
     }
 
     fn set_super_block(&self) -> Result<&SuperBlock, MRError> {
         let mut super_block = SuperBlock::default();
-        let sbytes = self.reader.read_n(1024, 1024).expect("error");
+        let sbytes = self.reader.as_ref().unwrap().read_n(1024, 1024).expect("error");
         let sbytes = Bytes::from(sbytes);
         super_block.s_inodes_count = (sbytes
             .get(0..4)
@@ -106,7 +106,7 @@ impl Ext4 {
             ));
         }
 
-        let sbytes = self.reader.read_n(block_size, len).expect("error");
+        let sbytes = self.reader.as_ref().unwrap().read_n(block_size, len).expect("error");
         let sbytes = Bytes::from(sbytes);
         let mut i = 0;
         let mut count = 0;
@@ -114,6 +114,7 @@ impl Ext4 {
         loop {
             let gdt = self
                 .reader
+                .as_ref().unwrap()
                 .read_n(block_size + i, descs_size)
                 .expect("error");
             let gdt = Bytes::from(gdt);
@@ -133,7 +134,7 @@ impl Ext4 {
     }
 
     pub fn get_reader(&self) -> &MRFile {
-        &self.reader
+        self.reader.as_ref().unwrap()
     }
 
     pub fn get_descs(&self) -> Result<&Vec<GroupDescriptor>, MRError> {
@@ -186,7 +187,7 @@ impl Ext4 {
 
             let mut _i = 0;
             let bs = self
-                .reader
+                .reader.as_ref().unwrap()
                 .read_n(inode_offset, inode_len as usize)
                 .unwrap();
             let bs = Bytes::from(bs);
@@ -382,6 +383,6 @@ impl Ext4 {
     }
 
     pub fn read_raw(&mut self, range: Range<usize>) -> Result<Vec<u8>, MRError> {
-        self.reader.read_range(range)
+        self.reader.as_ref().unwrap().read_range(range)
     }
 }

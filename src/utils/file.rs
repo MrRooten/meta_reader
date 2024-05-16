@@ -1,12 +1,12 @@
 #![allow(unused)]
-use std::{fs::File, io::{BufReader, SeekFrom, Read, Seek}, ops::Range, path::Path};
+use std::{cell::RefCell, fs::File, io::{BufReader, Read, Seek, SeekFrom}, ops::Range, path::Path};
 
-use super::{MRError, funcs::i_to_m};
+use super::{MRError};
 
-#[derive(Debug,Default)]
+#[derive(Debug)]
 pub struct MRFile {
     path    : String,
-    reader  : Option<BufReader<File>>
+    reader  : RefCell<BufReader<File>>
 }
 
 impl MRFile {
@@ -20,27 +20,20 @@ impl MRFile {
                 return Err(MRError::from(Box::new(err)));
             }
         };
-        let f = BufReader::new(f);
+        let f = RefCell::new(BufReader::new(f));
         Ok(MRFile {
             path: s,
-            reader: Some(f),
+            reader: f,
         })
     }
 
     pub fn read_n(&self,addr: usize,n: usize) -> Result<Vec<u8>,MRError> {
-        let reader = match &self.reader {
-            Some(reader) => {
-                reader
-            },
-            None => {
-                return Err(MRError::new("error"));
-            }
-        };
-        if let Err(e) = i_to_m(reader).seek(SeekFrom::Start(addr as u64)) {
+        let mut reader = self.reader.borrow_mut();
+        if let Err(e) = reader.seek(SeekFrom::Start(addr as u64)) {
             return Err(MRError::from(Box::from(e)));
         }
         let mut result = vec![0u8;n];
-        let ret = i_to_m(reader).read_exact(&mut result);
+        let ret = reader.read_exact(&mut result);
         let result = match ret {
             Ok(_ret) => {
                 result

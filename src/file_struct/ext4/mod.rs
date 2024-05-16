@@ -10,7 +10,7 @@ pub mod journal_impl;
 pub mod fs_impl;
 #[derive(Debug,Default)]
 pub struct Ext4 {
-    reader                  : MRFile,
+    reader                  : Option<MRFile>,
     super_block             : RefCell<Option<SuperBlock>>,
     group_descriptors       : RefCell<Option<Vec<GroupDescriptor>>>,
     block_size              : Cell<usize>

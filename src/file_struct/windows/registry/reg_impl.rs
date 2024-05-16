@@ -11,7 +11,7 @@ impl HiveBinCell {
 }
 
 impl HiveBin {
-    pub fn new(file: &MRFile, offset: u32) -> Result<HiveBin, MRError> {
+    pub fn new(file: &mut MRFile, offset: u32) -> Result<HiveBin, MRError> {
         let bs = match file.read_n(offset as usize, 32) {
             Ok(o) => o, 
             Err(e) => {

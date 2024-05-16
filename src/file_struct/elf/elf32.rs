@@ -249,7 +249,7 @@ pub struct ELF32 {
     shdrs: Vec<Elf32_Shdr>,
     shtab: Vec<u8>,
     symstrtab : Vec<u8>,
-    elf_file    : MRFile
+    elf_file    : Option<MRFile>
 }
 
 impl ELF32 {
@@ -278,7 +278,7 @@ impl ELF32 {
     }
 
     pub fn get_elf(&self) -> &MRFile {
-        &self.elf_file
+        self.elf_file.as_ref().unwrap()
     }
 
     pub fn get_shdrs(&self) -> &Vec<Elf32_Shdr> {
@@ -350,7 +350,7 @@ impl ELF32 {
         let section = &elf.shdrs[elf.get_shnum()];
 
         elf.shtab = mr_f.read_n(section.sh_offset.0 as usize, section.sh_size as usize).unwrap();
-        elf.elf_file = mr_f;
+        elf.elf_file = Some(mr_f);
         elf
     }
 

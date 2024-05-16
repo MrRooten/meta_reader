@@ -7,7 +7,7 @@ use crate::{
     file_struct::ntfs::{
         mft_impl::vec_u8_to_utf16string, FileReference, FileReference128, MFTValue, USNIdentifier,
     },
-    utils::{funcs::i_to_m, MRErrKind, MRError},
+    utils::{MRErrKind, MRError},
 };
 
 use super::{DataDescriptor, FileTime, MFTEntry, Ntfs, USNChangeJournal, USNChangeJournalEntry};
