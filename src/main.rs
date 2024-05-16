@@ -1,18 +1,10 @@
 #![allow(unused)]
-
 use std::{collections::HashMap, fs, path::PathBuf, ptr::addr_of};
 
-use bytes::Bytes;
-use chrono::{Utc, TimeZone};
 use colored::{Colorize, ColoredString};
 use meta_reader::{
-    file_struct::{
-        elf::{elf32::ELF32, elf64::ELF64},
-        ext4::{Ext4, FileType, Inode},
-        ntfs::{Ntfs, MFTEntry},
-    },
     modules::{ext4::Ext4Module, ntfs::NtfsModule},
-    utils::{file::filesize_to_human_string}, cmd::cli::cmd_prcess,
+    utils::file::filesize_to_human_string,
 };
 
 static mut PASSWD: Option<HashMap<u16, String>> = None;
@@ -246,7 +238,7 @@ fn main() {
         let mut module = Ext4Module::new(img).unwrap();
 
         if function.eq("list_deleted_files") {
-            let dirs = module
+            let _dirs = module
                 .list_deleted_files(_f_args, |id, inode, name1, name2, ext4| {
                     println!("{}", name1);
                     //println!("\tname2: {}", name2);
