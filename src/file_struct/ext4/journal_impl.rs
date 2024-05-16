@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use bytes::{Buf, Bytes};
 
-use crate::utils::{MRError};
+use crate::utils::MRError;
 
 use super::{
     CommitBlock, Ext4, Inode, Journal, JournalBlockTag, JournalDataBlock, JournalDescriptorBlock,

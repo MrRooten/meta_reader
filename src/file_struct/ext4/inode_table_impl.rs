@@ -467,7 +467,7 @@ impl Inode {
         let i_ctrime_extra = (&bs[0x94..0x98]).get_u32_le();
         let i_version_hi = (&bs[0x98..0x9c]).get_u32_le();
         let i_projid = (&bs[0x9c..0x100]).get_u32_le();
-        let i_block = (&bs[0x28..0x64]).clone();
+        let i_block = (&bs[0x28..0x64]);
         Inode {
             i_mode: i_mode,
             i_uid: i_uid,

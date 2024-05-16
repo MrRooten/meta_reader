@@ -1,5 +1,5 @@
 
-use std::{fs, collections::HashMap};
+use std::{collections::HashMap, fs, ptr::addr_of};
 
 use bytes::{Buf, Bytes};
 
@@ -79,7 +79,7 @@ impl USNChangeJournalEntry {
         }
 
         let mut reason = vec![];
-        if let Some(map) = unsafe { &USN_REASON } {
+        if let Some(map) = unsafe { &*addr_of!(USN_REASON) } {
             for i in map {
                 if self.update_reason_flags & i.0 != 0 {
                     reason.push(*i.1);

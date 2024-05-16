@@ -381,14 +381,14 @@ impl MFTEntry {
         let mut last_addr = addr as u64;
         let ntfs = unsafe { &*self.ntfs.unwrap() };
 
-        for _t in attrs {
+        if let Some(_t) = attrs.iter().next() {
             if let MFTValue::Data(datas) = &_t.value {
                 for data in &datas.datas {
                     if last_addr > data.datasize {
                         last_addr -= data.datasize;
                         continue;
                     }
-                    let buffer_data: Vec<u8>;
+
                     let read_size = {
                         if n < data.datasize as usize {
                             n
@@ -403,7 +403,7 @@ impl MFTEntry {
                         .reader
                         .read_n(start_addr as usize, __offset as usize + read_size as usize)
                         .unwrap();
-                    buffer_data = tmp_data[__offset as usize..].to_vec();
+                    let buffer_data = tmp_data[__offset as usize..].to_vec();
 
                     if last_addr < buffer_data.len() as u64
                         && last_n > buffer_data.len() as u64 - last_addr
@@ -438,8 +438,6 @@ impl MFTEntry {
                     }
                 }
             }
-
-            break; //no more data stream parse, for tmp
         }
         Ok(result)
     }
@@ -787,7 +785,7 @@ impl Value20_AttributeList {
     }
 
     pub fn parse(bs: Bytes, ntfs: &Ntfs, is_nonresident: bool) -> Result<Self, MRError> {
-        if is_nonresident == false {
+        if !is_nonresident {
             let mut i = 0;
             let mut list = vec![];
             while i < bs.len() {
