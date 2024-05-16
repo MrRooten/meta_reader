@@ -21,5 +21,4 @@ colored = "2.0.0"
 log = "0.4.0"
 rustyline = "10.0.0"
 rustyline-derive = "0.7.0"
-nt-hive = "0.2.0"
-clap = "4.3.2"
+
