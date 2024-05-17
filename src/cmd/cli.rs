@@ -1,6 +1,6 @@
 use std::process;
 
-use rustyline::completion::{Completer};
+use rustyline::completion::Completer;
 
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
