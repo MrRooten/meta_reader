@@ -11,6 +11,8 @@ pub mod ext4;
 pub mod ntfs;
 pub mod xfs;
 pub mod windows;
+pub mod bitlocker;
+pub mod vmdk;
 
 pub trait File {
     fn read(&self, start: usize, size: usize) -> Result<Bytes, MRError>;
