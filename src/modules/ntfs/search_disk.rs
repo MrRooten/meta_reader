@@ -173,7 +173,7 @@ impl NtfsModule {
                 .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
                 .progress_chars("#>-"));
             _mfts = cache_mfts(&mut self.ntfs, |offset, entry| {
-                pb.set_position(offset);
+                // pb.set_position(offset);
                 let value = entry.get_data_value();
                 if value.is_none() {
                     return false;
@@ -240,19 +240,19 @@ impl NtfsModule {
         let all_zero_hash = md5::compute(all_zero_vec);
         //let target = Bytes::from(target);
         let totals = self.ntfs.get_sector_bytes_num() * self.ntfs.get_sector_num();
-        let pb = ProgressBar::new(totals);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}), {eta}")
-                .unwrap()
-                .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
-                .progress_chars("#>-"));
-        let pb2 = &pb;
+        // let pb = ProgressBar::new(totals);
+        // pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}), {eta}")
+        //         .unwrap()
+        //         .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{}s", sec_to_s(state.eta().as_secs())).unwrap())
+        //         .progress_chars("#>-"));
+        // let pb2 = &pb;
         let mut count = 0;
         let ntfs = &self.ntfs;
         let drive = self.file.as_str();
         self.ntfs
             .iter_diy_block(read_size, target.len(), 3, move |index, progress, bs| {
                 if match_type.eq(&MatchType::Equal) {
-                    pb2.set_position(progress);
+                    // pb2.set_position(progress);
                     let size = vs_contains_sub(&bs, &target);
                     if size.is_some() {
                         let sub = String::from_utf8_lossy(
@@ -271,10 +271,11 @@ impl NtfsModule {
                                 bool_to_file
                             )
                         );
-                        pb2.println(s);
+                        println!("{}" ,s);
+                        // pb2.println(s);
                     }
                 } else if match_type.eq(&MatchType::Regex) {
-                    pb2.set_position(progress);
+                    // pb2.set_position(progress);
 
                     if let Some(rbp) = &regex_bytes_pattern {
                         for mt in rbp.find_iter(&bs) {
@@ -291,13 +292,14 @@ impl NtfsModule {
                                     bool_to_file
                                 )
                             );
-                            pb2.println(s);
+                            println!("{}" ,s);
+                            // pb2.println(s);
                         }
                     }
                 }
                 false
             });
-        pb.finish();
+        // pb.finish();
 
         Ok(())
     }
