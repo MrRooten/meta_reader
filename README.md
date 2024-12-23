@@ -17,15 +17,31 @@ NTFS(Need Administrator)
 Search deleted files  
 Argument:  
 - path：directory  
-![image](https://user-images.githubusercontent.com/25635931/223934395-bc72171b-814a-4afa-8694-c750dde4e192.png)  
+```shell
+.\meta_reader.exe ntfs --function deleted_files -d \\.\C: --options "path=C:\"
+count: 15
+1723627 Some("Windows.old") 2
+```
 
 Search binary data in disk  
-![image](https://user-images.githubusercontent.com/25635931/223934859-f8575bec-b759-4b86-916d-c08e9eeded4a.png)
+```shell
+.\meta_reader.exe ntfs -f search_disk -d \\.\C: -o encode=regex,to_search=123
+```
 
 
 
 File stat  
-![image](https://user-images.githubusercontent.com/25635931/223934487-5c8f193b-94e5-4426-8135-7077fb6bd1a2.png)  
+```shell
+ .\meta_reader.exe ntfs --function stat -d \\.\C: --options "path=C:\Windows"
+filename: Some("Windows")
+        index: 1724114
+        fullpath: Some("Windows")
+        creation: Some(2022-05-07T13:17:22+08:00)
+        access: Some(2024-12-23T13:49:45+08:00)
+        modify: Some(2024-12-19T11:29:01+08:00)
+        creation real(from filename): Some(2022-05-07T13:17:22+08:00)
+        stream list: None
+```
 
 EXT4(Need privilege to read disk file. like /dev/sdb)  
 Search deleted files  
