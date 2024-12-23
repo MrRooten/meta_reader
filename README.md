@@ -14,11 +14,6 @@ Update log:
 - Search disk with some pattern(String|regex|hex)
 
 NTFS(Need Administrator)
-DUMP USN Log
-Will dump to 'usn_log.txt' in current directory, can add 'out=${path}' to given file  
-![image](https://user-images.githubusercontent.com/25635931/229054812-4fc45118-967e-40ed-8757-ac611ac7dc63.png)  
-![image](https://user-images.githubusercontent.com/25635931/229054860-12af5546-098f-4fe6-9fa4-dfb0abf64eb7.png)  
-
 Search deleted files  
 Argument:  
 - path：directory  
