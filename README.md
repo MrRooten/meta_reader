@@ -1,3 +1,5 @@
+::⚠️ ntfs usn dump has some bugs, maybe the data run problem
+
 Update log:
 2023.3.30
 
