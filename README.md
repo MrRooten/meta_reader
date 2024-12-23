@@ -1,21 +1,13 @@
 ::⚠️ ntfs usn dump has some bugs, maybe the data run problem
 
-Update log:
-2023.3.30
 
- · dump usn log
-
-2023.3.29  
-- [Feature]NTFS USN Journal Parse
-
-2023.2.27  
-- Search content in disk and refer to file
-
-2023.2.24:
-
-- Search disk with some pattern(String|regex|hex)
 
 NTFS(Need Administrator)
+suport functions:  
+- stat
+- deleted_files
+- carve_usn
+
 Search deleted files  
 Argument:  
 - path：directory  
@@ -46,6 +38,15 @@ filename: Some("Windows")
 ```
 
 EXT4(Need privilege to read disk file. like /dev/sdb)  
+Support function  
+- list_deleted_files
+- journal_recover_file
+- list_files
+- read_file
+- list_recoverable
+- search_deleted_files
+- search_recoverable_files
+
 Search deleted files  
 ![image](https://user-images.githubusercontent.com/25635931/223934527-4d7549dd-fe26-4967-b95a-2255d6cf9205.png)  
 
