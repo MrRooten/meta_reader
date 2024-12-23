@@ -48,10 +48,15 @@ Support function
 - search_recoverable_files
 
 Search deleted files  
+```shell
+sudo ./meta_reader ext4 -d /dev/sdb -f search_deleted_files -o 'path=/home/sam1ple/test_dir'
+```
 ![image](https://user-images.githubusercontent.com/25635931/223934527-4d7549dd-fe26-4967-b95a-2255d6cf9205.png)  
 
 Search recoverable files by jbd2  
-
+```shell
+sudo ./meta_reader ext4 -d /dev/sdb -f search_recoverable_files -o 'path=/home/sam1ple/test_dir/'
+```
 ![image](https://user-images.githubusercontent.com/25635931/223934613-619329d4-e7a2-44b2-937a-ea20b38a75e7.png)  
 
 ![image](https://user-images.githubusercontent.com/25635931/223934927-d789a99e-809c-4dc3-a9f3-b9a8771f47e4.png)  
