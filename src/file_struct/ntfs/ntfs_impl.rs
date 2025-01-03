@@ -246,7 +246,6 @@ impl Ntfs {
     where
         F: FnMut(u64, u64, Vec<u8>, u64) -> bool,
     {
-        println!("{:?}", ranges);
         let redundancy = Ntfs::align(redundancy, 512);
         let c_sectors = self.total_sectors;
         let c_bytes = c_sectors * self.bytes_per_sector as u64;

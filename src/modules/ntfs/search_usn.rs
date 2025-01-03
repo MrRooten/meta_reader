@@ -157,43 +157,6 @@ fn check(mfts: &[(Range<usize>, u64)]) -> Vec<Range<usize>> {
 
 
 
-fn generate_range(mfts: &[(Range<usize>, u64)], start: usize, end: usize) -> (Vec<Range<usize>>, i64) {
-    let mfts = check(mfts);
-    let mut offset = start;
-    let mut res = vec![];
-    if mfts.is_empty() {
-        res.push(Range {
-            start,
-            end
-        });
-    }
-
-    let mut totals = 0;
-    for r in mfts.iter() {
-        if r.contains(&offset) {
-            continue;
-        }
-
-
-        totals = r.start as i64 - offset as i64;
-        res.push(Range {
-            start: offset,
-            end: r.start,
-        });
-
-        if r.end < end {
-            offset = r.end; 
-        }
-        
-    }
-
-
-    totals += end as i64 - offset as i64;
-
-    println!("{}", totals);
-    (res, totals)
-}
-
 fn match_filetime(filetime: Bytes) -> bool {
     let update_time = FileTime::parse_from_u64((&filetime[0..8]).get_u64());
     let scond = update_time.to_native_date();
