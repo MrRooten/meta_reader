@@ -6,7 +6,8 @@ NTFS(Need Administrator)
 suport functions:  
 - stat
 - deleted_files
-- carve_usn
+- search_usn
+- search_disk
 
 Search deleted files  
 Argument:  
